@@ -6,6 +6,16 @@ Warpstash is a dead-simple, self-hosted file dropper. You upload a file, get a l
 
 ---
 
+## 🧪 Live Demo
+
+Want to kick the tires without setting anything up? Check out the live instance:
+
+👉 **[https://warpstash.biohazard.qzz.io/](https://warpstash.biohazard.qzz.io/)**
+
+> Hosted on an Oracle Cloud Free Tier VPS with a measly **50MB file limit** and **5GB disk space** lmao. Please don't try to stash your 4K bluray rips or the server will cry.
+
+---
+
 ## 🎯 Why You'll Love It
 
 - ⏳ **Self-Destructing Files**: Pick an expiration time (`1h`, `12h`, `24h`, `72h`). Once time is up, the file is deleted forever. Your disk space stays clean, your past stays buried.
