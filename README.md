@@ -34,16 +34,22 @@ Because opening a web browser is sometimes 3 clicks too many.
 ### With `curl`
 ```bash
 # Upload a file (default: 24h expiration, returns raw URL)
-curl -F "file=@screenshot.png" https://files.example.com/
+curl -F "file=@screenshot.png" https://warpstash.biohazard.qzz.io/
 
 # Burn after reading (self-destructs after 1 download)
-curl -F "file=@secrets.env" -F "burn=true" https://files.example.com/
+curl -F "file=@secrets.env" -F "burn=true" https://warpstash.biohazard.qzz.io/
 
 # Custom expiration (1h, 12h, 24h, 72h)
-curl -F "file=@large_dump.sql" -F "time=1h" https://files.example.com/
+curl -F "file=@large_dump.sql" -F "time=1h" https://warpstash.biohazard.qzz.io/
 
 # Pipe terminal output straight to a link
-dmesg | curl -T - "https://files.example.com/upload?filename=dmesg.log&time=12h"
+dmesg | curl -T - "https://warpstash.biohazard.qzz.io/upload?filename=dmesg.log&time=12h"
+
+# Download a file (saves using server's original filename)
+curl -OJ https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+
+# Download with a custom local filename
+curl -o downloaded_file.png https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 ```
 
 ### With `wget` *(for the curl contrarians)*
@@ -52,11 +58,49 @@ dmesg | curl -T - "https://files.example.com/upload?filename=dmesg.log&time=12h"
 wget --post-file=report.pdf \
      --header="X-Filename: report.pdf" \
      --header="X-Expiry: 24h" \
-     https://files.example.com/upload -qO -
+     https://warpstash.biohazard.qzz.io/upload -qO -
 
 # Burn after reading (self-destructs after 1 download)
 wget --post-file=secrets.env \
-     "https://files.example.com/upload?filename=secrets.env&burn=true" -qO -
+     "https://warpstash.biohazard.qzz.io/upload?filename=secrets.env&burn=true" -qO -
+
+# Download a file
+wget --content-disposition https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+```
+
+### 💡 Shell Helpers (`~/.bashrc` or `~/.zshrc`)
+
+Typing `curl -F "file=@..."` every time you want to send a file is tedious. Drop these quick helpers into your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+# Send a file (usage: warp <file> [1h|12h|24h|72h])
+warp() {
+    curl -F "file=@$1" ${2:+-F "time=$2"} https://warpstash.biohazard.qzz.io/
+}
+
+# Burn after reading (usage: warp-burn <file>)
+warp-burn() {
+    curl -F "file=@$1" -F "burn=true" https://warpstash.biohazard.qzz.io/
+}
+
+# Download a file (saves with original remote filename)
+alias warp-get='curl -OJ'
+```
+
+Reload your shell (`source ~/.bashrc` or `source ~/.zshrc`), and you can send & receive files in one word:
+
+```bash
+# Send a file (default 24h, prints the link instantly)
+warp screenshot.png
+
+# Send with custom expiry
+warp dump.sql 1h
+
+# Send secrets that self-destruct after 1 download
+warp-burn secrets.env
+
+# Download a file
+warp-get https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 ```
 
 ---
@@ -88,7 +132,7 @@ If you prefer running binaries directly like an old-school sysadmin:
 make build
 
 # 2. Fire it up
-./warpstash --port 8080 --base-url https://files.example.com
+./warpstash --port 8080 --base-url https://warpstash.biohazard.qzz.io
 ```
 
 ---
@@ -102,7 +146,7 @@ Put Warpstash behind your favorite web server for automatic HTTPS and domain rou
 Three lines of config, automatic SSL certificates, and you can go back to eating lunch:
 
 ```caddy
-files.example.com {
+warpstash.biohazard.qzz.io {
     # Don't cut off big uploads!
     request_body {
         max_size 1GB
@@ -117,17 +161,17 @@ files.example.com {
 ```nginx
 server {
     listen 80;
-    server_name files.example.com;
+    server_name warpstash.biohazard.qzz.io;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name files.example.com;
+    server_name warpstash.biohazard.qzz.io;
 
     # Your SSL certificate paths
-    ssl_certificate /etc/letsencrypt/live/files.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/files.example.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/warpstash.biohazard.qzz.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/warpstash.biohazard.qzz.io/privkey.pem;
 
     # Allow large uploads so Nginx doesn't throw a 413 fit
     client_max_body_size 1024M;
@@ -146,7 +190,7 @@ server {
 }
 ```
 
-> **Pro-Tip**: When hosting behind Caddy or Nginx, remember to set `WARPSTASH_TRUST_PROXY=true` and `WARPSTASH_BASE_URL=https://files.example.com` so Warpstash generates proper public HTTPS links!
+> **Pro-Tip**: When hosting behind Caddy or Nginx, remember to set `WARPSTASH_TRUST_PROXY=true` and `WARPSTASH_BASE_URL=https://warpstash.biohazard.qzz.io` so Warpstash generates proper public HTTPS links!
 
 ---
 
