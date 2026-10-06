@@ -1,0 +1,13 @@
+---
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import HistorySheet from "@/components/HistorySheet.astro";
+---
+
+<header class="sticky top-0 z-50 bg-background">
+  <div class="flex h-14 items-center justify-end gap-3 px-4 lg:gap-6">
+    <div class="flex items-center gap-2">
+      <HistorySheet />
+      <ThemeToggle variant="outline" />
+    </div>
+  </div>
+</header>

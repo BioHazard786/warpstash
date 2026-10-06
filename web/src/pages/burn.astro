@@ -1,0 +1,125 @@
+---
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import Layout from "@/layouts/Layout.astro";
+import { Flame } from "@lucide/astro";
+---
+
+<Layout
+  title="Burn-After-Reading File — WarpStash"
+  description="One-time file delivery protected by WarpStash."
+>
+  <div class="flex flex-1 items-center justify-center p-4">
+    <Empty class="max-w-md">
+      <EmptyHeader>
+        <EmptyMedia
+          variant="icon"
+          class="text-destructive bg-destructive/10 dark:bg-destructive/20"
+        >
+          <Flame fill="currentColor" />
+        </EmptyMedia>
+        <EmptyTitle id="burn-filename" class="truncate max-w-xs">
+          Loading file...
+        </EmptyTitle>
+        <EmptyDescription id="burn-filesize" class="text-xs font-mono" />
+        <EmptyDescription class="text-destructive">
+          ⚠️ <strong>Warning:</strong> This file is configured for one-time
+          delivery. It will be downloaded and permanently destroyed from the
+          server immediately upon viewing.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent class="flex-row justify-center gap-2">
+        <Button id="burn-download-btn" href="#" as="a" variant="destructive">
+          Download & Destroy
+        </Button>
+        <Button href="/" as="a" variant="outline">
+          Back to Home
+        </Button>
+      </EmptyContent>
+    </Empty>
+  </div>
+
+  <!-- Embed data slot for backend template injection -->
+  <script is:inline id="burn-data" type="application/json">
+    {}
+  </script>
+</Layout>
+
+<script>
+  function formatBytes(bytes: number): string {
+    if (bytes <= 0 || isNaN(bytes)) return "";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  }
+
+  function initBurnPage() {
+    const dataEl = document.getElementById("burn-data");
+    let injectedData: {
+      id?: string;
+      name?: string;
+      sizeBytes?: number;
+      downloadUrl?: string;
+    } = {};
+    if (dataEl && dataEl.textContent) {
+      try {
+        injectedData = JSON.parse(dataEl.textContent);
+      } catch {
+        // Ignore JSON parse errors
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const id = injectedData.id || params.get("id") || "";
+    const name =
+      injectedData.name ||
+      params.get("name") ||
+      id ||
+      "Come_Play_from_the_series_Arcane_League_of_Legends_Stray_Kid.mp3";
+    const sizeBytes =
+      injectedData.sizeBytes ?? (Number(params.get("size")) || 0);
+    const downloadUrl =
+      injectedData.downloadUrl ||
+      (id
+        ? `/f/${id}${params.get("ext") || ""}?raw=1`
+        : `${window.location.pathname}?raw=1`);
+
+    const filenameEl = document.getElementById("burn-filename");
+    if (filenameEl) {
+      filenameEl.textContent = name;
+      filenameEl.title = name;
+    }
+
+    const filesizeEl = document.getElementById("burn-filesize");
+    if (filesizeEl) {
+      const sizeStr = formatBytes(sizeBytes);
+      filesizeEl.textContent = sizeStr
+        ? `${sizeStr} · Single-Use Delivery`
+        : "Single-Use Delivery";
+    }
+
+    const downloadBtn = document.getElementById(
+      "burn-download-btn",
+    ) as HTMLAnchorElement | null;
+    if (downloadBtn) {
+      downloadBtn.href = downloadUrl;
+      downloadBtn.addEventListener("click", () => {
+        setTimeout(() => {
+          window.location.href = "/410";
+        }, 400);
+      });
+    }
+  }
+
+  // Run on mount and DOM ready
+  initBurnPage();
+  document.addEventListener("DOMContentLoaded", initBurnPage);
+</script>

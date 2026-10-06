@@ -1,0 +1,55 @@
+# ==============================================================================
+# Warpstash .gitignore
+# ==============================================================================
+
+# Environment & Secrets (Keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
+# Go Binaries & Build Output
+/warpstash
+/warpstash-*
+*.test
+*.out
+coverage.txt
+
+# Node & Package Managers
+node_modules/
+web/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Astro Build Artifacts & Cache
+.astro/
+web/.astro/
+dist/
+web/dist/
+
+# Application Data & SQLite Database
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.dat
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Settings
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json

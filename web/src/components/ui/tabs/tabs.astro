@@ -1,0 +1,45 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cn } from "@/lib/utils";
+
+type Props = HTMLAttributes<"div"> & {
+  defaultValue?: string;
+  orientation?: "horizontal" | "vertical";
+  activationMode?: "auto" | "manual";
+};
+
+const {
+  class: className,
+  defaultValue,
+  orientation = "horizontal",
+  activationMode,
+  ...props
+} = Astro.props;
+---
+
+<div
+  data-slot="tabs"
+  data-default-value={defaultValue}
+  data-orientation={orientation}
+  data-activation-mode={activationMode}
+  data-horizontal={orientation === "horizontal" ? "" : undefined}
+  data-vertical={orientation === "vertical" ? "" : undefined}
+  class={cn("gap-2 group/tabs flex data-horizontal:flex-col", className)}
+  {...props}
+>
+  <slot />
+</div>
+
+<script>
+  import { create } from "@data-slot/tabs";
+
+  const controllers: ReturnType<typeof create> = [];
+  const initialize = () => controllers.push(...create());
+  initialize();
+  document.addEventListener("astro:page-load", initialize);
+  document.addEventListener("astro:before-swap", () => {
+    for (const controller of controllers) controller.destroy();
+    controllers.length = 0;
+  });
+</script>

@@ -1,0 +1,18 @@
+---
+import type { ComponentProps } from "astro/types";
+import X from "@lucide/astro/icons/x";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+type Props = ComponentProps<typeof Button>;
+
+const { class: className, ...props } = Astro.props;
+---
+
+<Button class={cn(className)} data-slot="dialog-close" {...props}>
+  <slot>
+    <X />
+    <span class="sr-only">Close</span>
+  </slot>
+</Button>

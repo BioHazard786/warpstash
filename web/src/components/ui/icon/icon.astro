@@ -1,0 +1,113 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+type Props = Omit<HTMLAttributes<"svg">, "name" | "href"> & {
+  href?: HTMLAttributes<"a">["href"];
+  name?: string | number;
+};
+
+const { name, href, ...props } = Astro.props;
+
+const hrefMap = {
+  "x.com": "x",
+  twitter: "twitter",
+  facebook: "facebook",
+  instagram: "instagram",
+  pinterest: "pinterest",
+  youtube: "youtube",
+  tiktok: "tiktok",
+  snapchat: "snapchat",
+  reddit: "reddit",
+  tumblr: "tumblr",
+  "wa.me": "whatsapp",
+  telegram: "telegram",
+  discord: "discord",
+  vimeo: "vimeo",
+  flickr: "flickr",
+  yelp: "yelp",
+  spotify: "spotify",
+  behance: "behance",
+  dribbble: "dribbble",
+  soundcloud: "soundcloud",
+  github: "github",
+  twitch: "twitch",
+  "tel:": "phone",
+  "mailto:": "mail",
+  "maps.app.goo.gl": "map-pin",
+  linkedin: "linkedin",
+} as const;
+
+type Source = "lucide" | "simple";
+
+const icons: Record<Source, Record<string, () => Promise<unknown>>> = {
+  lucide: import.meta.glob("/node_modules/lucide-static/icons/*.svg"),
+  simple: import.meta.glob("/node_modules/simple-icons/icons/*.svg"),
+};
+
+const pathFor = (source: Source, icon: string) =>
+  source === "lucide"
+    ? `/node_modules/lucide-static/icons/${icon}.svg`
+    : `/node_modules/simple-icons/icons/${icon}.svg`;
+
+// Resolve an icon by explicit name, or derive one from a link href.
+// Names may be prefixed with `lucide:` or `simple:` to pick a set when both
+// sets contain the same name (for example `github` or `figma`).
+const hasName = name != null && name !== "";
+
+const resolve = () => {
+  let key = hasName ? String(name) : undefined;
+  let order: Source[] = ["lucide", "simple"];
+
+  if (!key && href) {
+    const hrefKey = Object.keys(hrefMap).find((candidate) =>
+      href.toString().includes(candidate),
+    );
+    if (hrefKey) {
+      key = hrefMap[hrefKey as keyof typeof hrefMap];
+      order = ["simple", "lucide"];
+    }
+  }
+
+  const linkIcon = {
+    source: "lucide" as const,
+    path: pathFor("lucide", "link"),
+  };
+
+  if (!key) return href ? linkIcon : undefined;
+  if (key === "x.com") key = "simple:x";
+
+  const [prefix, icon] = key.includes(":") ? key.split(":") : [undefined, key];
+  if (prefix === "lucide" || prefix === "simple") order = [prefix];
+
+  for (const source of order) {
+    const path = pathFor(source, icon);
+    if (path in icons[source]) return { source, path };
+  }
+
+  // A link always gets an icon, even when its brand has no logo in either set
+  // (Simple Icons removed LinkedIn, for example).
+  if (!hasName && href) return linkIcon;
+
+  return undefined;
+};
+
+const resolved = resolve();
+const module = resolved
+  ? ((await icons[resolved.source][resolved.path]()) as { default?: any })
+  : undefined;
+const Comp = module?.default;
+
+const isLabelled =
+  "aria-label" in props || "aria-labelledby" in props || "role" in props;
+---
+
+{Comp && resolved && (
+  <Comp
+    height={24}
+    width={24}
+    fill={resolved.source === "simple" ? "currentColor" : "none"}
+    class="size-[1em] text-base"
+    aria-hidden={isLabelled ? undefined : "true"}
+    {...props}
+  />
+)}

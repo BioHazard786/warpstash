@@ -1,0 +1,44 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cn } from "@/lib/utils";
+import {
+  toggleVariants,
+  type ToggleVariantProps,
+} from "@/components/ui/toggle";
+
+type Props = HTMLAttributes<"button"> &
+  ToggleVariantProps & {
+    value: string;
+    disabled?: boolean;
+  };
+
+const {
+  class: className,
+  value,
+  disabled,
+  variant = "default",
+  size = "default",
+  type = "button",
+  ...props
+} = Astro.props;
+---
+
+<button
+  data-slot="toggle-group-item"
+  data-value={value}
+  data-disabled={disabled ? "" : undefined}
+  type={type}
+  disabled={disabled}
+  aria-pressed="false"
+  class={cn(
+    "group-data-[spacing=0]/toggle-group:rounded-none group-data-[spacing=0]/toggle-group:px-2 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-end]:pr-1.5 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-start]:pl-1.5 group-data-horizontal/toggle-group:group-data-[spacing=0]/toggle-group:first:rounded-l-lg group-data-vertical/toggle-group:group-data-[spacing=0]/toggle-group:first:rounded-t-lg group-data-horizontal/toggle-group:group-data-[spacing=0]/toggle-group:last:rounded-r-lg group-data-vertical/toggle-group:group-data-[spacing=0]/toggle-group:last:rounded-b-lg shrink-0 group-aria-disabled/toggle-group:pointer-events-none group-aria-disabled/toggle-group:opacity-50 focus:z-10 focus-visible:z-10",
+    "group-data-[variant=outline]/toggle-group:border-input group-data-[variant=outline]/toggle-group:hover:bg-muted group-data-[variant=outline]/toggle-group:border group-data-[variant=outline]/toggle-group:bg-transparent group-data-[variant=default]/toggle-group:border-0 group-data-[variant=default]/toggle-group:shadow-none group-data-[variant=default]/toggle-group:data-[state=off]:bg-transparent group-data-[variant=outline]/toggle-group:data-[state=off]:bg-transparent",
+    "group-data-[size=default]/toggle-group:h-8 group-data-[size=default]/toggle-group:min-w-8 group-data-[size=default]/toggle-group:px-2.5 group-data-[size=default]/toggle-group:has-data-[icon=inline-end]:pr-2 group-data-[size=default]/toggle-group:has-data-[icon=inline-start]:pl-2 group-data-[size=sm]/toggle-group:h-7 group-data-[size=sm]/toggle-group:min-w-7 group-data-[size=sm]/toggle-group:rounded-[min(var(--radius-md),12px)] group-data-[size=sm]/toggle-group:px-2.5 group-data-[size=sm]/toggle-group:text-[0.8rem] group-data-[size=sm]/toggle-group:has-data-[icon=inline-end]:pr-1.5 group-data-[size=sm]/toggle-group:has-data-[icon=inline-start]:pl-1.5 group-data-[size=sm]/toggle-group:[&_svg:not([class*='size-'])]:size-3.5 group-data-[size=lg]/toggle-group:h-9 group-data-[size=lg]/toggle-group:min-w-9 group-data-[size=lg]/toggle-group:px-2.5 group-data-[size=lg]/toggle-group:has-data-[icon=inline-end]:pr-2 group-data-[size=lg]/toggle-group:has-data-[icon=inline-start]:pl-2",
+    toggleVariants({ variant, size }),
+    className,
+  )}
+  {...props}
+>
+  <slot />
+</button>

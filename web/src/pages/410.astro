@@ -1,0 +1,41 @@
+---
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import Layout from "@/layouts/Layout.astro";
+import { Flame } from "@lucide/astro";
+---
+
+<Layout
+  title="410 - File Burned & Shredded — WarpStash"
+  description="This single-use file was configured to burn after reading and has already been destroyed."
+>
+  <div class="flex flex-1 items-center justify-center p-4">
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia
+          variant="icon"
+          class="text-destructive bg-destructive/10 dark:bg-destructive/20"
+        >
+          <Flame fill="currentColor" />
+        </EmptyMedia>
+        <EmptyTitle>File Burned & Shredded</EmptyTitle>
+        <EmptyDescription>
+          This file was configured with <strong>Burn-After-Reading</strong> and
+          has already been downloaded or permanently destroyed from the server.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button href="/" as="a">
+          Upload a New File
+        </Button>
+      </EmptyContent>
+    </Empty>
+  </div>
+</Layout>

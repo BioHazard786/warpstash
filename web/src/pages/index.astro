@@ -1,0 +1,168 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import AsciiLogo from "@/components/AsciiLogo.astro";
+import FileUpload from "@/components/FileUpload.astro";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Copy, Check } from "@lucide/astro";
+
+// Configured from environment with fallback
+const rawMaxSizeMB =
+  import.meta.env.WARPSTASH_MAX_FILE_SIZE_MB ??
+  import.meta.env.PUBLIC_MAX_FILE_SIZE_MB;
+const rawMaxFiles =
+  import.meta.env.WARPSTASH_MAX_FILES ?? import.meta.env.PUBLIC_MAX_FILES;
+
+const parsedMaxSizeMB = rawMaxSizeMB ? parseInt(String(rawMaxSizeMB), 10) : NaN;
+const parsedMaxFiles = rawMaxFiles ? parseInt(String(rawMaxFiles), 10) : NaN;
+
+const maxSizeMB =
+  !isNaN(parsedMaxSizeMB) && parsedMaxSizeMB > 0 ? parsedMaxSizeMB : 1024;
+const maxFiles =
+  !isNaN(parsedMaxFiles) && parsedMaxFiles > 0 ? parsedMaxFiles : 10;
+---
+
+<Layout title="Warpstash — Ephemeral File Storage" header={true}>
+  <!-- Main Content -->
+  <main class="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8 sm:gap-10">
+    <!-- Hero Section -->
+    <section class="flex flex-col gap-4">
+      <!-- 3-Layer ASCII Art Banner -->
+      <AsciiLogo />
+
+      <!-- Description Paragraph -->
+      <p class="text-base sm:text-lg lg:text-xl text-muted-foreground leading-relaxed tracking-tight text-balance">
+        Fast, minimalist temporary file hosting. Share files with automated
+        expiration or single-use burn-after-reading. Returns direct URLs with
+        zero tracking.
+      </p>
+    </section>
+
+    <!-- Centerpiece: File Upload Component -->
+    <section class="w-full">
+      <FileUpload maxSizeMB={maxSizeMB} maxFiles={maxFiles} />
+    </section>
+
+    <!-- Minimalist Quick CLI Snippet with Tool Switcher -->
+    <section class="w-full flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
+          Terminal Quick Upload
+        </h2>
+        <ToggleGroup
+          id="cli-toggle-group"
+          variant="outline"
+          size="sm"
+          defaultValue="curl"
+        >
+          <ToggleGroupItem value="curl">curl</ToggleGroupItem>
+          <ToggleGroupItem value="wget">wget</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      <div
+        id="hero-curl-box"
+        class="bg-muted/40 border border-border/70 hover:border-border transition-colors rounded-lg px-3.5 py-2.5 font-mono text-xs text-foreground flex items-center justify-between gap-3 w-full cursor-pointer group select-all"
+        title="Click to copy command"
+      >
+        <code class="truncate flex items-center">
+          <span class="text-muted-foreground/60 select-none">$</span>
+          <span class="ml-2 text-foreground font-medium" id="cli-cmd-prefix">
+            curl -F
+          </span>
+          <span class="text-muted-foreground ml-1.5" id="cli-cmd-file">
+            file=@document.pdf
+          </span>
+          <span class="text-muted-foreground/60 ml-2" id="hero-host-display">
+            https://warpstash.app/api/upload
+          </span>
+        </code>
+        <button
+          type="button"
+          id="hero-copy-curl-btn"
+          class="size-6 flex items-center justify-center rounded text-muted-foreground group-hover:text-foreground transition-colors shrink-0 cursor-pointer"
+          aria-label="Copy command"
+        >
+          <Copy class="size-3.5" id="hero-copy-icon" />
+          <Check
+            class="size-3.5 text-emerald-500 hidden"
+            id="hero-copied-icon"
+          />
+        </button>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  let currentTool = "curl";
+  const cliToggle = document.getElementById("cli-toggle-group");
+  const cliCmdPrefix = document.getElementById("cli-cmd-prefix");
+  const cliCmdFile = document.getElementById("cli-cmd-file");
+  const hostDisplay = document.getElementById("hero-host-display");
+
+  function updateCliDisplay(tool: string) {
+    currentTool = tool;
+    const origin = window.location.origin;
+    if (tool === "wget") {
+      if (cliCmdPrefix) cliCmdPrefix.textContent = "wget --post-file=";
+      if (cliCmdFile) {
+        cliCmdFile.textContent = "document.pdf";
+        cliCmdFile.classList.remove("ml-1.5");
+      }
+      if (hostDisplay) hostDisplay.textContent = `${origin}/api/upload -qO -`;
+    } else {
+      if (cliCmdPrefix) cliCmdPrefix.textContent = "curl -F";
+      if (cliCmdFile) {
+        cliCmdFile.textContent = "file=@document.pdf";
+        cliCmdFile.classList.add("ml-1.5");
+      }
+      if (hostDisplay) hostDisplay.textContent = `${origin}/api/upload`;
+    }
+  }
+
+  // Set initial host
+  updateCliDisplay("curl");
+
+  cliToggle?.addEventListener("toggle-group:change", (e: any) => {
+    if (e.detail?.value?.[0]) {
+      updateCliDisplay(e.detail.value[0]);
+    }
+  });
+
+  cliToggle?.addEventListener("click", () => {
+    const val = cliToggle.getAttribute("data-value");
+    if (val) {
+      updateCliDisplay(val.trim());
+    }
+  });
+
+  // Copy command to clipboard
+  const curlBox = document.getElementById("hero-curl-box");
+  const copyBtn = document.getElementById("hero-copy-curl-btn");
+  const copyIcon = document.getElementById("hero-copy-icon");
+  const copiedIcon = document.getElementById("hero-copied-icon");
+
+  function copyCommand() {
+    const origin = window.location.origin;
+    const cmd =
+      currentTool === "wget"
+        ? `wget --post-file=document.pdf ${origin}/api/upload -qO -`
+        : `curl -F file=@document.pdf ${origin}/api/upload`;
+
+    navigator.clipboard.writeText(cmd);
+    if (copyIcon && copiedIcon) {
+      copyIcon.classList.add("hidden");
+      copiedIcon.classList.remove("hidden");
+      setTimeout(() => {
+        copyIcon.classList.remove("hidden");
+        copiedIcon.classList.add("hidden");
+      }, 2000);
+    }
+  }
+
+  curlBox?.addEventListener("click", copyCommand);
+  copyBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    copyCommand();
+  });
+</script>

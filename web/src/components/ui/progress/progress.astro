@@ -1,0 +1,48 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cn } from "@/lib/utils";
+
+type Props = HTMLAttributes<"div"> & {
+  value?: number;
+  max?: number;
+  indicatorClass?: string;
+  indicatorId?: string;
+};
+
+const {
+  class: className,
+  value = 0,
+  max = 100,
+  indicatorClass,
+  indicatorId,
+  ...props
+} = Astro.props;
+
+const clampedValue = Math.min(Math.max(value ?? 0, 0), max);
+const percentage = max > 0 ? (clampedValue / max) * 100 : 0;
+---
+
+<div
+  role="progressbar"
+  aria-valuemin={0}
+  aria-valuemax={max}
+  aria-valuenow={clampedValue}
+  data-slot="progress"
+  class={cn(
+    "relative flex h-2 w-full items-center overflow-x-hidden rounded-full bg-muted",
+    className,
+  )}
+  {...props}
+>
+  <div
+    id={indicatorId}
+    data-slot="progress-indicator"
+    class={cn(
+      "size-full flex-1 bg-primary transition-all duration-300",
+      indicatorClass,
+    )}
+    style={`transform: translateX(-${100 - percentage}%)`}
+  ></div>
+  <slot />
+</div>

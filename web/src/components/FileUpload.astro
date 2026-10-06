@@ -1,0 +1,1013 @@
+---
+import { Button } from "@/components/ui/button";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment";
+import { Spinner } from "@/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Separator } from "@/components/ui/separator";
+import {
+  FileUp,
+  FileText,
+  FileArchive,
+  FileSpreadsheet,
+  Video,
+  Headphones,
+  Image as ImageIcon,
+  File as FileIcon,
+  X,
+  CircleAlert,
+  CloudUpload,
+  Check,
+  Copy,
+  Download,
+  Flame,
+  ExternalLink,
+  Clock,
+  RefreshCw,
+} from "@lucide/astro";
+
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+
+interface Props {
+  maxSizeMB?: number;
+  maxFiles?: number;
+}
+
+const {
+  maxSizeMB = 1024, // 1GB default
+  maxFiles = 10,
+} = Astro.props;
+---
+
+<div
+  class="flex flex-col gap-3 w-full"
+  id="coss-file-upload"
+  data-max-size-mb={maxSizeMB}
+  data-max-files={maxFiles}
+>
+  <!-- Expiry & Burn Selector Row -->
+  <div class="flex items-center md:justify-end justify-start">
+    <ToggleGroup
+      id="expiry-toggle-group"
+      variant="outline"
+      size="sm"
+      defaultValue="24h"
+    >
+      <ToggleGroupItem value="1h">1h</ToggleGroupItem>
+      <ToggleGroupItem value="12h">12h</ToggleGroupItem>
+      <ToggleGroupItem value="24h">24h</ToggleGroupItem>
+      <ToggleGroupItem value="72h">72h</ToggleGroupItem>
+      <ToggleGroupItem
+        value="burn"
+        class="data-[state=on]:bg-destructive/15 data-[state=on]:text-destructive data-[state=on]:border-destructive/40 text-destructive/80 hover:text-destructive"
+        title="Burn after reading (destroyed upon first view)"
+      >
+        <Flame />
+        Burn
+      </ToggleGroupItem>
+    </ToggleGroup>
+  </div>
+
+  <!-- Drop area based on Coss UI specs -->
+  <div
+    id="drop-zone"
+    class="flex min-h-44 flex-col items-center justify-center rounded-xl border-2 border-input border-dashed p-6 transition-colors hover:bg-accent/30 cursor-pointer text-center relative select-none"
+    role="button"
+    tabindex="0"
+  >
+    <input
+      id="file-input"
+      type="file"
+      multiple
+      class="sr-only"
+      aria-label="Upload files"
+    />
+
+    <Empty class="gap-2 p-2">
+      <EmptyHeader>
+        <EmptyMedia variant="icon" class="size-10">
+          <FileUp class="size-5" />
+        </EmptyMedia>
+        <EmptyTitle class="text-base">Upload files</EmptyTitle>
+        <EmptyDescription>Drag & drop or click to browse</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent class="text-muted-foreground">
+        All files ∙ Max {maxFiles} files ∙ Up to{" "}
+        {maxSizeMB >= 1024 ? `${maxSizeMB / 1024} GB` : `${maxSizeMB} MB`}
+      </EmptyContent>
+    </Empty>
+  </div>
+
+  <!-- Error banner -->
+  <div
+    id="error-banner"
+    class="hidden items-center gap-1.5 text-destructive text-xs py-1"
+    role="alert"
+  >
+    <CircleAlert class="size-3.5 shrink-0" />
+    <span id="error-message"></span>
+  </div>
+
+  <!-- File list container -->
+  <div id="file-list-container" class="space-y-3 hidden">
+    <!-- Vertical list of attachments styled with fulldev ui / shadcn Attachment -->
+    <div id="file-items" class="flex flex-col gap-2 w-full"></div>
+
+    <!-- Multi-file action bar -->
+    <Separator id="action-bar-separator" />
+    <div id="action-bar" class="flex items-center justify-between gap-2">
+      <Button id="clear-all-btn" variant="outline" size="sm">
+        Remove all
+      </Button>
+      <Button id="upload-all-btn" size="sm">
+        <CloudUpload />
+        <span id="upload-btn-text">Upload to Warpstash</span>
+      </Button>
+    </div>
+  </div>
+
+  <!-- Hidden Attachment Component Template (pre-rendered with shadcn CVA styling) -->
+  <template id="attachment-item-template">
+    <Attachment state="idle" class="w-full">
+      <AttachmentMedia class="attachment-media">
+        <!-- Media content -->
+      </AttachmentMedia>
+      <AttachmentContent>
+        <AttachmentTitle class="attachment-title" />
+        <AttachmentDescription class="attachment-desc" />
+      </AttachmentContent>
+      <AttachmentActions class="attachment-actions">
+        <!-- Action buttons -->
+      </AttachmentActions>
+    </Attachment>
+  </template>
+
+  <!-- Pre-rendered Lucide / Spinner Icons for Client Clones -->
+  <div id="icon-templates" class="hidden" aria-hidden="true">
+    <div data-icon="spinner">
+      <Spinner />
+    </div>
+    <div data-icon="clock">
+      <Clock class="opacity-70" />
+    </div>
+    <div data-icon="check">
+      <Check class="text-emerald-500" />
+    </div>
+    <div data-icon="error">
+      <CircleAlert class="text-destructive" />
+    </div>
+    <div data-icon="refresh">
+      <RefreshCw />
+    </div>
+    <div data-icon="x">
+      <X />
+    </div>
+    <div data-icon="copy">
+      <Copy />
+    </div>
+    <div data-icon="copied">
+      <Check class="text-emerald-500" />
+    </div>
+    <div data-icon="external">
+      <ExternalLink />
+    </div>
+    <div data-icon="file-text">
+      <FileText class="opacity-70" />
+    </div>
+    <div data-icon="file-archive">
+      <FileArchive class="opacity-70" />
+    </div>
+    <div data-icon="file-spreadsheet">
+      <FileSpreadsheet class="opacity-70" />
+    </div>
+    <div data-icon="video">
+      <Video class="opacity-70" />
+    </div>
+    <div data-icon="headphones">
+      <Headphones class="opacity-70" />
+    </div>
+    <div data-icon="image">
+      <ImageIcon class="opacity-70" />
+    </div>
+    <div data-icon="file">
+      <FileIcon class="opacity-70" />
+    </div>
+  </div>
+
+  <!-- Pre-rendered Action Buttons -->
+  <div id="action-templates" class="hidden" aria-hidden="true">
+    <AttachmentAction
+      data-action-type="remove"
+      aria-label="Remove file"
+      title="Remove file"
+    >
+      <X />
+    </AttachmentAction>
+    <AttachmentAction
+      data-action-type="cancel"
+      aria-label="Cancel upload"
+      title="Cancel upload"
+    >
+      <X />
+    </AttachmentAction>
+    <AttachmentAction
+      data-action-type="retry"
+      aria-label="Retry upload"
+      title="Retry upload"
+    >
+      <RefreshCw />
+    </AttachmentAction>
+    <AttachmentAction
+      data-action-type="copy"
+      aria-label="Copy link"
+      title="Copy link"
+    >
+      <Copy />
+    </AttachmentAction>
+    <AttachmentAction
+      as="a"
+      data-action-type="download"
+      aria-label="Download file"
+      title="Download file"
+    >
+      <Download />
+    </AttachmentAction>
+    <AttachmentAction
+      as="a"
+      data-action-type="open"
+      aria-label="Preview in new tab"
+      title="Preview in new tab"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <ExternalLink />
+    </AttachmentAction>
+  </div>
+</div>
+
+<script>
+  interface FileItem {
+    id: string;
+    file: File;
+    status: "queued" | "uploading" | "processing" | "done" | "error";
+    progress: number;
+    previewUrl?: string;
+    url?: string;
+    deleteUrl?: string;
+    deleteToken?: string;
+    isBurn?: boolean;
+    error?: string;
+    speed?: string;
+    abortUpload?: () => void;
+  }
+
+  const root = document.getElementById("coss-file-upload");
+  if (!root) throw new Error("File upload root missing");
+
+  const dropZone = document.getElementById("drop-zone") as HTMLDivElement;
+  const fileInput = document.getElementById("file-input") as HTMLInputElement;
+  const fileListContainer = document.getElementById(
+    "file-list-container",
+  ) as HTMLDivElement;
+  const fileItemsContainer = document.getElementById(
+    "file-items",
+  ) as HTMLDivElement;
+  const actionBar = document.getElementById("action-bar") as HTMLDivElement;
+  const actionBarSeparator = document.getElementById("action-bar-separator");
+  const clearAllBtn = document.getElementById(
+    "clear-all-btn",
+  ) as HTMLButtonElement;
+  const uploadAllBtn = document.getElementById(
+    "upload-all-btn",
+  ) as HTMLButtonElement;
+  const uploadBtnText = document.getElementById(
+    "upload-btn-text",
+  ) as HTMLSpanElement;
+  const errorBanner = document.getElementById("error-banner") as HTMLDivElement;
+  const errorMessage = document.getElementById(
+    "error-message",
+  ) as HTMLSpanElement;
+  const expiryToggleGroup = document.getElementById("expiry-toggle-group");
+  const attachmentTemplate = document.getElementById(
+    "attachment-item-template",
+  ) as HTMLTemplateElement;
+  const iconTemplates = document.getElementById(
+    "icon-templates",
+  ) as HTMLDivElement;
+  const actionTemplates = document.getElementById(
+    "action-templates",
+  ) as HTMLDivElement;
+
+  const maxFiles = parseInt(root.dataset.maxFiles || "10", 10);
+  const maxSizeMB = parseInt(root.dataset.maxSizeMb || "1024", 10);
+  const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+  let selectedExpiry = "24h";
+  let files: FileItem[] = [];
+
+  // Idiomatic @data-slot/toggle-group listener
+  expiryToggleGroup?.addEventListener("toggle-group:change", (e: any) => {
+    const val = e.detail?.value?.[0];
+    if (val) {
+      selectedExpiry = val;
+    } else {
+      // Enforce a policy: if deselected, restore previous selection using toggle-group:set
+      expiryToggleGroup.dispatchEvent(
+        new CustomEvent("toggle-group:set", {
+          detail: { value: selectedExpiry },
+        }),
+      );
+    }
+  });
+
+  // Format bytes helper
+  function formatBytes(bytes: number, decimals = 1): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  }
+
+  // Clone pre-rendered icons
+  function getIconClone(name: string): HTMLElement {
+    const iconWrap = iconTemplates.querySelector(`[data-icon="${name}"]`);
+    if (!iconWrap || !iconWrap.firstElementChild) {
+      return document.createElement("span");
+    }
+    return iconWrap.firstElementChild.cloneNode(true) as HTMLElement;
+  }
+
+  // Clone pre-rendered action buttons
+  function getActionClone(type: string): HTMLElement {
+    const actionEl = actionTemplates.querySelector(
+      `[data-action-type="${type}"]`,
+    );
+    if (!actionEl) {
+      return document.createElement("button");
+    }
+    return actionEl.cloneNode(true) as HTMLElement;
+  }
+
+  // File icon categorizer
+  function getFileIconType(name: string, type: string): string {
+    const ext = name.split(".").pop()?.toLowerCase() || "";
+    if (
+      ["pdf", "doc", "docx", "txt", "md", "rtf"].includes(ext) ||
+      type.includes("pdf") ||
+      type.includes("text")
+    ) {
+      return "file-text";
+    }
+    if (
+      ["zip", "tar", "gz", "rar", "7z", "bz2", "xz"].includes(ext) ||
+      type.includes("zip") ||
+      type.includes("archive") ||
+      type.includes("compressed")
+    ) {
+      return "file-archive";
+    }
+    if (
+      ["xls", "xlsx", "csv", "tsv", "ods"].includes(ext) ||
+      type.includes("spreadsheet") ||
+      type.includes("excel") ||
+      type.includes("csv")
+    ) {
+      return "file-spreadsheet";
+    }
+    if (
+      ["mp4", "mkv", "webm", "mov", "avi", "wmv", "flv"].includes(ext) ||
+      type.startsWith("video/")
+    ) {
+      return "video";
+    }
+    if (
+      ["mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"].includes(ext) ||
+      type.startsWith("audio/")
+    ) {
+      return "headphones";
+    }
+    if (
+      ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"].includes(ext) ||
+      type.startsWith("image/")
+    ) {
+      return "image";
+    }
+    return "file";
+  }
+
+  // Handle errors
+  function showError(msg: string) {
+    errorMessage.textContent = msg;
+    errorBanner.classList.remove("hidden");
+    errorBanner.classList.add("flex");
+  }
+
+  function clearError() {
+    errorMessage.textContent = "";
+    errorBanner.classList.add("hidden");
+    errorBanner.classList.remove("flex");
+  }
+
+  // Add files
+  function addFiles(newFiles: FileList | File[]) {
+    clearError();
+    const incoming = Array.from(newFiles);
+
+    if (files.length + incoming.length > maxFiles) {
+      showError(`Cannot exceed maximum of ${maxFiles} files.`);
+      return;
+    }
+
+    for (const f of incoming) {
+      if (f.size > maxSizeBytes) {
+        showError(
+          `"${f.name}" exceeds maximum allowed size of ${maxSizeMB} MB.`,
+        );
+        continue;
+      }
+
+      const isImage =
+        f.type.startsWith("image/") ||
+        /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(f.name);
+      const previewUrl = isImage ? URL.createObjectURL(f) : undefined;
+
+      files.push({
+        id: Math.random().toString(36).substring(2, 11),
+        file: f,
+        status: "queued",
+        progress: 0,
+        previewUrl,
+      });
+    }
+
+    renderFileList();
+  }
+
+  // Remove file
+  function removeFile(id: string) {
+    const target = files.find((f) => f.id === id);
+    if (target?.abortUpload) {
+      target.abortUpload();
+    }
+    if (target?.previewUrl) {
+      URL.revokeObjectURL(target.previewUrl);
+    }
+    files = files.filter((f) => f.id !== id);
+    renderFileList();
+  }
+
+  // Clear all
+  clearAllBtn.addEventListener("click", () => {
+    files.forEach((f) => {
+      if (f.abortUpload) f.abortUpload();
+      if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+    });
+    files = [];
+    renderFileList();
+    clearError();
+  });
+
+  // Update Media component inside card
+  function updateCardMedia(
+    mediaEl: HTMLElement,
+    item: FileItem,
+    state: string,
+  ) {
+    const currentRenderState = mediaEl.getAttribute("data-rendered-state");
+    if (currentRenderState === state && state !== "uploading") {
+      return;
+    }
+    mediaEl.setAttribute("data-rendered-state", state);
+    mediaEl.innerHTML = "";
+
+    if (state === "uploading" || state === "processing") {
+      mediaEl.setAttribute("data-variant", item.previewUrl ? "image" : "icon");
+      if (item.previewUrl) {
+        const img = document.createElement("img");
+        img.alt = item.file.name;
+        img.src = item.previewUrl;
+        img.className = "size-full object-cover opacity-40";
+        mediaEl.appendChild(img);
+
+        const spinnerOverlay = document.createElement("div");
+        spinnerOverlay.className =
+          "absolute inset-0 flex items-center justify-center text-foreground";
+        spinnerOverlay.appendChild(getIconClone("spinner"));
+        mediaEl.appendChild(spinnerOverlay);
+      } else {
+        mediaEl.appendChild(getIconClone("spinner"));
+      }
+    } else if (state === "error") {
+      mediaEl.setAttribute("data-variant", "icon");
+      mediaEl.appendChild(getIconClone("error"));
+    } else if (state === "done") {
+      if (item.previewUrl) {
+        mediaEl.setAttribute("data-variant", "image");
+        const img = document.createElement("img");
+        img.alt = item.file.name;
+        img.src = item.previewUrl;
+        img.className = "size-full object-cover";
+        mediaEl.appendChild(img);
+
+        const checkBadge = document.createElement("div");
+        checkBadge.className =
+          "absolute bottom-1 right-1 size-3.5 rounded-full bg-background/90 flex items-center justify-center shadow-xs text-emerald-500";
+        checkBadge.appendChild(getIconClone("copied"));
+        mediaEl.appendChild(checkBadge);
+      } else {
+        mediaEl.setAttribute("data-variant", "icon");
+        mediaEl.appendChild(getIconClone("check"));
+      }
+    } else {
+      // idle state
+      if (item.previewUrl) {
+        mediaEl.setAttribute("data-variant", "image");
+        const img = document.createElement("img");
+        img.alt = item.file.name;
+        img.src = item.previewUrl;
+        img.className = "size-full object-cover";
+        mediaEl.appendChild(img);
+      } else {
+        mediaEl.setAttribute("data-variant", "icon");
+        const fileIconType = getFileIconType(item.file.name, item.file.type);
+        mediaEl.appendChild(getIconClone(fileIconType));
+      }
+    }
+  }
+
+  // Update Actions inside card
+  function updateCardActions(
+    actionsEl: HTMLElement,
+    item: FileItem,
+    state: string,
+  ) {
+    const currentRenderState = actionsEl.getAttribute("data-rendered-state");
+    if (currentRenderState === state) {
+      return;
+    }
+    actionsEl.setAttribute("data-rendered-state", state);
+    actionsEl.innerHTML = "";
+
+    if (state === "idle") {
+      const removeBtn = getActionClone("remove");
+      removeBtn.setAttribute("aria-label", `Remove ${item.file.name}`);
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeFile(item.id);
+      });
+      actionsEl.appendChild(removeBtn);
+    } else if (state === "uploading" || state === "processing") {
+      const cancelBtn = getActionClone("cancel");
+      cancelBtn.setAttribute(
+        "aria-label",
+        `Cancel upload for ${item.file.name}`,
+      );
+      cancelBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (item.abortUpload) {
+          item.abortUpload();
+        }
+        removeFile(item.id);
+      });
+      actionsEl.appendChild(cancelBtn);
+    } else if (state === "error") {
+      const retryBtn = getActionClone("retry");
+      retryBtn.setAttribute("aria-label", `Retry upload for ${item.file.name}`);
+      retryBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        uploadItem(item);
+      });
+      actionsEl.appendChild(retryBtn);
+
+      const removeBtn = getActionClone("remove");
+      removeBtn.setAttribute("aria-label", `Remove ${item.file.name}`);
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeFile(item.id);
+      });
+      actionsEl.appendChild(removeBtn);
+    } else if (state === "done") {
+      if (item.url) {
+        const copyBtn = getActionClone("copy");
+        copyBtn.setAttribute(
+          "aria-label",
+          item.isBurn
+            ? `Copy 1-time link for ${item.file.name}`
+            : `Copy link for ${item.file.name}`,
+        );
+        copyBtn.setAttribute(
+          "title",
+          item.isBurn ? "Copy 1-time link" : "Copy link",
+        );
+        copyBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (item.url) {
+            navigator.clipboard.writeText(item.url);
+            const originalContent = copyBtn.innerHTML;
+            copyBtn.innerHTML = "";
+            copyBtn.appendChild(getIconClone("copied"));
+            copyBtn.setAttribute("title", "Copied to clipboard!");
+            setTimeout(() => {
+              copyBtn.innerHTML = originalContent;
+              copyBtn.setAttribute(
+                "title",
+                item.isBurn ? "Copy 1-time link" : "Copy link",
+              );
+            }, 2000);
+          }
+        });
+        actionsEl.appendChild(copyBtn);
+
+        const downloadBtn = getActionClone("download") as HTMLAnchorElement;
+        downloadBtn.href = item.url;
+        downloadBtn.setAttribute("aria-label", `Download ${item.file.name}`);
+        if (item.isBurn) {
+          downloadBtn.removeAttribute("download");
+          downloadBtn.target = "_blank";
+          downloadBtn.setAttribute(
+            "title",
+            "Reveal & Download (Burn-on-read link)",
+          );
+        } else {
+          downloadBtn.setAttribute("download", item.file.name);
+          downloadBtn.setAttribute("title", "Download file");
+        }
+        actionsEl.appendChild(downloadBtn);
+
+        if (!item.isBurn) {
+          const openBtn = getActionClone("open") as HTMLAnchorElement;
+          openBtn.href = `${item.url}?inline=1`;
+          openBtn.setAttribute(
+            "aria-label",
+            `Preview ${item.file.name} in new tab`,
+          );
+          openBtn.setAttribute("title", "Preview in new tab");
+          actionsEl.appendChild(openBtn);
+        }
+      }
+
+      const removeBtn = getActionClone("remove");
+      removeBtn.setAttribute("aria-label", `Remove ${item.file.name}`);
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeFile(item.id);
+      });
+      actionsEl.appendChild(removeBtn);
+    }
+  }
+
+  // Update card content and styling
+  function updateCard(card: HTMLElement, item: FileItem) {
+    const attachmentState =
+      item.status === "queued"
+        ? "idle"
+        : item.status === "uploading"
+          ? "uploading"
+          : item.status === "processing"
+            ? "processing"
+            : item.status === "error"
+              ? "error"
+              : "done";
+
+    card.setAttribute("data-state", attachmentState);
+
+    // Title
+    const titleEl = card.querySelector('[data-slot="attachment-title"]');
+    if (titleEl && titleEl.textContent !== item.file.name) {
+      titleEl.textContent = item.file.name;
+    }
+
+    // Description
+    const descEl = card.querySelector('[data-slot="attachment-description"]');
+    if (descEl) {
+      let descText = "";
+      if (attachmentState === "idle") {
+        descText = `${formatBytes(item.file.size)} · Ready to upload`;
+      } else if (attachmentState === "uploading") {
+        descText = `Uploading · ${item.progress}% ${item.speed ? `(${item.speed})` : ""}`;
+      } else if (attachmentState === "processing") {
+        descText = `Processing file · ${formatBytes(item.file.size)}`;
+      } else if (attachmentState === "error") {
+        descText = `Upload failed · ${item.error || "Try again"}`;
+      } else if (attachmentState === "done") {
+        descText = item.isBurn
+          ? `🔥 Burn on read · ${formatBytes(item.file.size)}`
+          : `Uploaded · ${formatBytes(item.file.size)}`;
+      }
+      descEl.textContent = descText;
+    }
+
+    // Media
+    const mediaEl = card.querySelector(
+      '[data-slot="attachment-media"]',
+    ) as HTMLElement | null;
+    if (mediaEl) {
+      updateCardMedia(mediaEl, item, attachmentState);
+    }
+
+    // Actions
+    const actionsEl = card.querySelector(
+      '[data-slot="attachment-actions"]',
+    ) as HTMLElement | null;
+    if (actionsEl) {
+      updateCardActions(actionsEl, item, attachmentState);
+    }
+  }
+
+  // Render attachment list
+  function renderFileList() {
+    if (files.length === 0) {
+      fileListContainer.classList.add("hidden");
+      fileItemsContainer.innerHTML = "";
+      dropZone.removeAttribute("data-files");
+      return;
+    }
+
+    fileListContainer.classList.remove("hidden");
+    dropZone.setAttribute("data-files", "true");
+
+    // Remove deleted elements
+    const currentIds = new Set(files.map((f) => f.id));
+    Array.from(fileItemsContainer.children).forEach((child) => {
+      const elId = child.getAttribute("data-id");
+      if (elId && !currentIds.has(elId)) {
+        child.remove();
+      }
+    });
+
+    // Synchronize attachment cards
+    files.forEach((item) => {
+      let card = fileItemsContainer.querySelector(
+        `[data-id="${item.id}"]`,
+      ) as HTMLElement | null;
+      if (!card) {
+        const clone = (
+          attachmentTemplate.content.cloneNode(true) as DocumentFragment
+        ).firstElementChild as HTMLElement;
+        card = clone;
+        card.setAttribute("data-id", item.id);
+        card.id = `item-${item.id}`;
+        fileItemsContainer.appendChild(card);
+      }
+      updateCard(card, item);
+    });
+
+    // Action bar state
+    const hasQueued = files.some(
+      (f) => f.status === "queued" || f.status === "error",
+    );
+    const isUploading = files.some(
+      (f) => f.status === "uploading" || f.status === "processing",
+    );
+    const allDone = files.every((f) => f.status === "done");
+
+    if (allDone) {
+      uploadAllBtn.classList.add("hidden");
+      clearAllBtn.textContent = "Clear completed";
+      actionBarSeparator?.classList.add("hidden");
+    } else {
+      uploadAllBtn.classList.remove("hidden");
+      clearAllBtn.textContent = "Remove all";
+      actionBarSeparator?.classList.remove("hidden");
+    }
+
+    if (isUploading) {
+      uploadAllBtn.disabled = true;
+      uploadBtnText.textContent = "Uploading...";
+    } else {
+      uploadAllBtn.disabled = !hasQueued;
+      const queuedCount = files.filter(
+        (f) => f.status === "queued" || f.status === "error",
+      ).length;
+      uploadBtnText.textContent =
+        queuedCount > 1 ? `Upload ${queuedCount} files` : "Upload to Warpstash";
+    }
+  }
+
+  // Upload item handler with XMLHttpRequest
+  function uploadItem(item: FileItem): Promise<void> {
+    return new Promise((resolve) => {
+      item.status = "uploading";
+      item.progress = 0;
+      item.speed = undefined;
+      item.error = undefined;
+      renderFileList();
+
+      const xhr = new XMLHttpRequest();
+      let isAborted = false;
+      item.abortUpload = () => {
+        isAborted = true;
+        xhr.abort();
+      };
+
+      const isBurn = selectedExpiry === "burn";
+
+      const formData = new FormData();
+      // Form fields MUST be added BEFORE file so streaming parsers read metadata first
+      formData.append("time", selectedExpiry);
+      if (isBurn) {
+        formData.append("burn", "true");
+      }
+      formData.append("file", item.file);
+
+      const uploadUrl = isBurn
+        ? `/api/upload?burn=true&time=burn`
+        : `/api/upload?time=${encodeURIComponent(selectedExpiry)}`;
+
+      let startTime = Date.now();
+      let prevLoaded = 0;
+
+      xhr.upload.onprogress = (e) => {
+        if (isAborted) return;
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          item.progress = percent;
+
+          const elapsed = (Date.now() - startTime) / 1000;
+          if (elapsed > 0.5) {
+            const bytesPerSec = (e.loaded - prevLoaded) / elapsed;
+            item.speed = `${formatBytes(bytesPerSec)}/s`;
+            startTime = Date.now();
+            prevLoaded = e.loaded;
+          }
+
+          if (percent === 100 && item.status !== "processing") {
+            item.status = "processing";
+            renderFileList();
+          } else {
+            // High efficiency inline card update without re-rendering entire list
+            const card = fileItemsContainer.querySelector(
+              `[data-id="${item.id}"]`,
+            ) as HTMLElement | null;
+            if (card) {
+              const descEl = card.querySelector(
+                '[data-slot="attachment-description"]',
+              );
+              if (descEl) {
+                descEl.textContent = `Uploading · ${percent}% ${item.speed ? `(${item.speed})` : ""}`;
+              }
+            }
+          }
+        }
+      };
+
+      xhr.onload = () => {
+        if (isAborted) {
+          resolve();
+          return;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            item.status = "done";
+            item.url = data.url;
+            item.deleteUrl = data.delete_url;
+            item.deleteToken = data.delete_token;
+            item.isBurn = Boolean(data.is_burn_on_read);
+            item.progress = 100;
+
+            // Burn-after-reading files are ephemeral and self-destruct upon viewing;
+            // do not persist them into localStorage history.
+            if (!item.isBurn) {
+              saveToHistory({
+                id: data.id,
+                name: data.name,
+                size: data.size,
+                url: data.url,
+                deleteToken: data.delete_token,
+                expiresAt: data.expires_at,
+                isBurn: false,
+                createdAt: data.created_at,
+              });
+            }
+          } catch {
+            item.status = "done";
+            item.url = xhr.responseText.trim();
+          }
+        } else {
+          item.status = "error";
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            item.error = errJson.error || `HTTP ${xhr.status}`;
+          } catch {
+            item.error = `HTTP ${xhr.status}`;
+          }
+        }
+
+        renderFileList();
+        resolve();
+      };
+
+      xhr.onerror = () => {
+        if (isAborted) {
+          resolve();
+          return;
+        }
+        item.status = "error";
+        item.error = "Network failure";
+        renderFileList();
+        resolve();
+      };
+
+      xhr.open("POST", uploadUrl);
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("X-Expiry", selectedExpiry);
+      if (isBurn) {
+        xhr.setRequestHeader("X-Burn", "true");
+      }
+      xhr.send(formData);
+    });
+  }
+
+  // Upload all queued items
+  uploadAllBtn.addEventListener("click", async () => {
+    uploadAllBtn.disabled = true;
+    uploadBtnText.textContent = "Uploading...";
+
+    for (const item of files) {
+      if (item.status === "queued" || item.status === "error") {
+        await uploadItem(item);
+      }
+    }
+
+    renderFileList();
+  });
+
+  // History storage helper
+  function saveToHistory(record: any) {
+    if (record.isBurn) {
+      return; // Never store burn files in localStorage
+    }
+    try {
+      const existing = JSON.parse(
+        localStorage.getItem("warpstash_history") || "[]",
+      );
+      const now = Date.now();
+      const valid = Array.isArray(existing)
+        ? existing.filter((item: any) => {
+            if (!item || !item.id) return false;
+            if (!item.expiresAt) return true;
+            const exp = new Date(item.expiresAt).getTime();
+            return isNaN(exp) || exp > now;
+          })
+        : [];
+      valid.unshift(record);
+      localStorage.setItem(
+        "warpstash_history",
+        JSON.stringify(valid.slice(0, 50)),
+      );
+      window.dispatchEvent(new CustomEvent("warpstash:history-updated"));
+    } catch (e) {
+      console.error("failed saving to history", e);
+    }
+  }
+
+  // Drag and drop event listeners
+  dropZone.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files) {
+      addFiles(fileInput.files);
+      fileInput.value = "";
+    }
+  });
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add("bg-accent/40", "border-primary");
+    });
+  });
+
+  ["dragleave", "drop"].forEach((eventName) => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("bg-accent/40", "border-primary");
+    });
+  });
+
+  dropZone.addEventListener("drop", (e) => {
+    if (e.dataTransfer?.files) {
+      addFiles(e.dataTransfer.files);
+    }
+  });
+</script>

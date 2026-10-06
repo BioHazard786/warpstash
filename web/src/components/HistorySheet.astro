@@ -1,0 +1,465 @@
+---
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+  SheetFooter,
+} from "@/components/ui/sheet";
+import {
+  RotateCcwClock,
+  Trash,
+  Download,
+  Copy,
+  Check,
+  CircleAlert,
+  File as FileIcon,
+  FileText,
+  FileArchive,
+  FileSpreadsheet,
+  Video,
+  Headphones,
+  Image as ImageIcon,
+} from "@lucide/astro";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment";
+---
+
+<Sheet id="history-sheet">
+  <SheetTrigger id="toggle-history-btn" variant="outline" size="icon-sm">
+    <RotateCcwClock />
+  </SheetTrigger>
+
+  <SheetContent side="right">
+    <!-- Header -->
+    <SheetHeader>
+      <SheetTitle>Upload History</SheetTitle>
+      <SheetDescription>
+        Files uploaded in this browser session.
+      </SheetDescription>
+    </SheetHeader>
+
+    <div class="flex-1 overflow-y-auto p-4">
+      <!-- Empty state -->
+      <div id="history-empty" class="flex h-full items-center justify-center">
+        <Empty>
+          <EmptyMedia variant="icon">
+            <RotateCcwClock />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>No uploads in this browser yet</EmptyTitle>
+            <EmptyDescription>
+              Files you upload will appear here.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+
+      <!-- Container for history items when length is not 0 -->
+      <div id="history-items-container" class="hidden flex-col gap-2.5">
+        <!-- Rendered from template -->
+      </div>
+    </div>
+
+    <!-- Template for history item using Attachment components -->
+    <template id="history-item-template">
+      <Attachment class="w-full">
+        <AttachmentMedia variant="icon">
+          <FileIcon />
+        </AttachmentMedia>
+        <AttachmentContent>
+          <AttachmentTitle class="history-item-link" />
+          <AttachmentDescription class="history-item-meta" />
+        </AttachmentContent>
+        <AttachmentActions>
+          <AttachmentAction
+            as="a"
+            href="#"
+            download
+            class="history-download-btn"
+            title="Download file"
+            aria-label="Download file"
+          >
+            <Download />
+          </AttachmentAction>
+          <AttachmentAction
+            type="button"
+            class="history-copy-btn"
+            title="Copy link"
+            aria-label="Copy link"
+          >
+            <Copy />
+          </AttachmentAction>
+          <AttachmentAction
+            type="button"
+            class="history-delete-btn"
+            title="Delete file now"
+            aria-label="Delete file now"
+          >
+            <Trash />
+          </AttachmentAction>
+        </AttachmentActions>
+      </Attachment>
+    </template>
+
+    <!-- Pre-rendered icons for History items -->
+    <div id="history-icon-templates" class="hidden" aria-hidden="true">
+      <div data-icon="file">
+        <FileIcon class="size-4" />
+      </div>
+      <div data-icon="file-text">
+        <FileText class="size-4" />
+      </div>
+      <div data-icon="file-archive">
+        <FileArchive class="size-4" />
+      </div>
+      <div data-icon="file-spreadsheet">
+        <FileSpreadsheet class="size-4" />
+      </div>
+      <div data-icon="video">
+        <Video class="size-4" />
+      </div>
+      <div data-icon="headphones">
+        <Headphones class="size-4" />
+      </div>
+      <div data-icon="image">
+        <ImageIcon class="size-4" />
+      </div>
+      <div data-icon="copied">
+        <Check class="size-3.5 text-emerald-500" />
+      </div>
+      <div data-icon="error">
+        <CircleAlert class="size-4 text-destructive" />
+      </div>
+    </div>
+
+    <!-- Footer Note -->
+    <SheetFooter>
+      <Button id="clear-history-all-btn" variant="destructive">
+        <Trash />
+        Clear All
+      </Button>
+    </SheetFooter>
+  </SheetContent>
+</Sheet>
+
+<script>
+  interface HistoryRecord {
+    id: string;
+    name: string;
+    size: number;
+    url: string;
+    deleteToken: string;
+    expiresAt: string;
+    isBurn: boolean;
+    createdAt: string;
+  }
+
+  const toggleBtn = document.getElementById("toggle-history-btn");
+  const clearAllBtn = document.getElementById(
+    "clear-history-all-btn",
+  ) as HTMLButtonElement;
+  const container = document.getElementById(
+    "history-items-container",
+  ) as HTMLDivElement;
+  const emptyState = document.getElementById("history-empty") as HTMLDivElement;
+  const template = document.getElementById(
+    "history-item-template",
+  ) as HTMLTemplateElement;
+  const iconTemplates = document.getElementById(
+    "history-icon-templates",
+  ) as HTMLDivElement;
+
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  }
+
+  function formatAttachmentType(name: string): string {
+    const ext = name.split(".").pop()?.trim().toUpperCase();
+    if (!ext || ext === name.toUpperCase()) {
+      return "FILE";
+    }
+    return ext;
+  }
+
+  function getHistory(): HistoryRecord[] {
+    try {
+      const raw: HistoryRecord[] = JSON.parse(
+        localStorage.getItem("warpstash_history") || "[]",
+      );
+      if (!Array.isArray(raw)) return [];
+
+      const now = Date.now();
+      const valid = raw.filter((item) => {
+        if (!item || !item.id || item.isBurn) return false;
+        if (!item.expiresAt) return true;
+        const exp = new Date(item.expiresAt).getTime();
+        return isNaN(exp) || exp > now;
+      });
+
+      if (valid.length !== raw.length) {
+        localStorage.setItem("warpstash_history", JSON.stringify(valid));
+      }
+
+      return valid;
+    } catch {
+      return [];
+    }
+  }
+
+  function saveHistory(list: HistoryRecord[]) {
+    localStorage.setItem("warpstash_history", JSON.stringify(list));
+    render();
+  }
+
+  async function deleteFile(record: HistoryRecord, cardEl: HTMLElement) {
+    if (!record.deleteToken) {
+      const filtered = getHistory().filter((r) => r.id !== record.id);
+      saveHistory(filtered);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/files/${record.id}?token=${record.deleteToken}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data.error) msg = data.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(msg);
+      }
+
+      // Successful deletion
+      const filtered = getHistory().filter((r) => r.id !== record.id);
+      saveHistory(filtered);
+    } catch (err: any) {
+      console.error("failed deleting file", err);
+
+      // On error, set state="error" on Attachment component
+      cardEl.setAttribute("data-state", "error");
+
+      const mediaEl = cardEl.querySelector('[data-slot="attachment-media"]');
+      if (mediaEl) {
+        mediaEl.innerHTML = "";
+        mediaEl.appendChild(getHistoryIcon("error"));
+      }
+
+      const descEl = cardEl.querySelector(
+        '[data-slot="attachment-description"]',
+      );
+      if (descEl) {
+        descEl.textContent = `Delete failed · ${err.message || "Network error"}`;
+      }
+    }
+  }
+
+  function getFileIconType(name: string): string {
+    const ext = name.split(".").pop()?.toLowerCase() || "";
+    if (["pdf", "doc", "docx", "txt", "md", "rtf"].includes(ext)) {
+      return "file-text";
+    }
+    if (["zip", "tar", "gz", "rar", "7z", "bz2", "xz"].includes(ext)) {
+      return "file-archive";
+    }
+    if (["xls", "xlsx", "csv", "tsv", "ods"].includes(ext)) {
+      return "file-spreadsheet";
+    }
+    if (["mp4", "mkv", "webm", "mov", "avi", "wmv", "flv"].includes(ext)) {
+      return "video";
+    }
+    if (["mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"].includes(ext)) {
+      return "headphones";
+    }
+    if (["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"].includes(ext)) {
+      return "image";
+    }
+    return "file";
+  }
+
+  function getHistoryIcon(name: string): HTMLElement {
+    const wrap = iconTemplates?.querySelector(`[data-icon="${name}"]`);
+    if (!wrap || !wrap.firstElementChild) {
+      return document.createElement("span");
+    }
+    return wrap.firstElementChild.cloneNode(true) as HTMLElement;
+  }
+
+  function render() {
+    if (!container || !emptyState || !clearAllBtn || !template) return;
+    const list = getHistory();
+    container.innerHTML = "";
+
+    if (list.length === 0) {
+      emptyState.classList.remove("hidden");
+      emptyState.classList.add("flex");
+      container.classList.add("hidden");
+      container.classList.remove("flex");
+      clearAllBtn.classList.add("hidden");
+      clearAllBtn.disabled = true;
+      return;
+    }
+
+    emptyState.classList.add("hidden");
+    emptyState.classList.remove("flex");
+    container.classList.remove("hidden");
+    container.classList.add("flex");
+    clearAllBtn.classList.remove("hidden");
+    clearAllBtn.disabled = false;
+
+    list.forEach((item) => {
+      const clone = (template.content.cloneNode(true) as DocumentFragment)
+        .firstElementChild as HTMLElement;
+
+      clone.setAttribute("data-id", item.id);
+
+      // Media icon
+      const mediaEl = clone.querySelector('[data-slot="attachment-media"]');
+      if (mediaEl) {
+        const iconType = getFileIconType(item.name);
+        const iconEl = getHistoryIcon(iconType);
+        mediaEl.innerHTML = "";
+        mediaEl.appendChild(iconEl);
+      }
+
+      // Title & Link
+      const linkEl = clone.querySelector(
+        ".history-item-link",
+      ) as HTMLAnchorElement | null;
+      if (linkEl) {
+        linkEl.href = item.url;
+        linkEl.textContent = item.name;
+        if (item.isBurn) {
+          linkEl.removeAttribute("download");
+          linkEl.target = "_blank";
+          linkEl.setAttribute(
+            "title",
+            `Reveal & Download ${item.name} (Burns on view)`,
+          );
+        } else {
+          linkEl.setAttribute("download", item.name);
+          linkEl.setAttribute("title", `Download ${item.name}`);
+        }
+      }
+
+      // Burn badge
+      const burnBadge = clone.querySelector(
+        ".history-burn-badge",
+      ) as HTMLElement | null;
+      if (burnBadge) {
+        if (item.isBurn) {
+          burnBadge.classList.remove("hidden");
+          burnBadge.classList.add("inline-flex");
+        } else {
+          burnBadge.classList.add("hidden");
+          burnBadge.classList.remove("inline-flex");
+        }
+      }
+
+      // Description / Meta: Type · Size (e.g. "PDF · 2.4 MB")
+      const descEl = clone.querySelector(
+        '[data-slot="attachment-description"]',
+      ) as HTMLElement | null;
+      if (descEl) {
+        descEl.textContent = `${formatAttachmentType(item.name)} · ${formatBytes(item.size)}`;
+      }
+
+      // Action: Download
+      const dlBtn = clone.querySelector(
+        ".history-download-btn",
+      ) as HTMLAnchorElement | null;
+      if (dlBtn) {
+        dlBtn.href = item.url;
+        if (item.isBurn) {
+          dlBtn.removeAttribute("download");
+          dlBtn.target = "_blank";
+          dlBtn.setAttribute(
+            "title",
+            `Reveal & Download ${item.name} (Burns on view)`,
+          );
+          dlBtn.setAttribute("aria-label", `Reveal & Download ${item.name}`);
+        } else {
+          dlBtn.setAttribute("download", item.name);
+          dlBtn.setAttribute("title", `Download ${item.name}`);
+          dlBtn.setAttribute("aria-label", `Download ${item.name}`);
+        }
+      }
+
+      // Action: Copy
+      const copyBtn = clone.querySelector(
+        ".history-copy-btn",
+      ) as HTMLButtonElement | null;
+      if (copyBtn) {
+        copyBtn.setAttribute("aria-label", `Copy link for ${item.name}`);
+        copyBtn.addEventListener("click", () => {
+          navigator.clipboard.writeText(item.url);
+          const originalContent = copyBtn.innerHTML;
+          copyBtn.innerHTML = "";
+          copyBtn.appendChild(getHistoryIcon("copied"));
+          copyBtn.setAttribute("title", "Copied to clipboard!");
+          setTimeout(() => {
+            copyBtn.innerHTML = originalContent;
+            copyBtn.setAttribute("title", "Copy link");
+          }, 2000);
+        });
+      }
+
+      // Action: Delete
+      const delBtn = clone.querySelector(
+        ".history-delete-btn",
+      ) as HTMLButtonElement | null;
+      if (delBtn) {
+        delBtn.setAttribute("aria-label", `Delete ${item.name}`);
+        delBtn.addEventListener("click", () => {
+          deleteFile(item, clone);
+        });
+      }
+
+      container.appendChild(clone);
+    });
+  }
+
+  toggleBtn?.addEventListener("click", () => {
+    render();
+  });
+
+  clearAllBtn?.addEventListener("click", () => {
+    saveHistory([]);
+  });
+
+  window.addEventListener("warpstash:history-updated", () => {
+    render();
+  });
+
+  render();
+</script>

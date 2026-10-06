@@ -1,0 +1,21 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cn } from "@/lib/utils";
+
+type Props = HTMLAttributes<"div"> & {
+  value: string;
+};
+
+const { class: className, hidden = true, value, ...props } = Astro.props;
+---
+
+<div
+  data-slot="tabs-content"
+  hidden={hidden}
+  data-value={value}
+  class={cn("text-sm flex-1 outline-none", className)}
+  {...props}
+>
+  <slot />
+</div>

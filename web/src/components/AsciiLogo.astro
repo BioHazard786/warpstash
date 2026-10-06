@@ -1,0 +1,151 @@
+---
+import { cn } from "@/lib/utils";
+
+interface Props {
+  class?: string;
+  delay?: number;
+  duration?: number;
+}
+
+const { class: className, delay = 100, duration = 450 } = Astro.props;
+
+// Layer 1 & 2: Full ASCII art with double-line borders and contours
+const shadowAscii = `██╗    ██╗ █████╗ ██████╗ ██████╗ ███████╗████████╗ █████╗ ███████╗██╗  ██╗
+██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║  ██║
+██║ █╗ ██║███████║██████╔╝██████╔╝███████╗   ██║   ███████║███████╗███████║
+██║███╗██║██╔══██║██╔══██╗██╔═══╝ ╚════██║   ██║   ██╔══██║╚════██║██╔══██║
+╚███╔███╔╝██║  ██║██║  ██║██║     ███████║   ██║   ██║  ██║███████║██║  ██║
+ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝`;
+
+// Layer 3: Solid block foreground (contours transparent so shadow shows through)
+const solidAscii = `██     ██  █████  ██████  ██████  ███████ ████████  █████  ███████ ██   ██ 
+██     ██ ██   ██ ██   ██ ██   ██ ██         ██    ██   ██ ██      ██   ██ 
+██  █  ██ ███████ ██████  ██████  ███████    ██    ███████ ███████ ███████ 
+██ ███ ██ ██   ██ ██   ██ ██           ██    ██    ██   ██      ██ ██   ██ 
+ ███ ███  ██   ██ ██   ██ ██      ███████    ██    ██   ██ ███████ ██   ██ 
+                                                                           `;
+---
+
+<div
+  class={cn(
+    "ascii-logo-container relative w-full flex items-start justify-start overflow-hidden",
+    className,
+  )}
+  data-solid={solidAscii}
+  data-delay={delay}
+  data-duration={duration}
+>
+  <div class="relative max-w-full overflow-x-auto sm:overflow-visible">
+    <!-- Layer 1: Sizer (maintains strict dimensions and prevents layout shift) -->
+    <pre
+      aria-hidden="true"
+      class="invisible text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] select-none whitespace-pre font-mono"
+    >{shadowAscii}</pre>
+
+    <!-- Layer 2: Outline contour shadow layer (ghost background) -->
+    <pre
+      aria-hidden="true"
+      class="absolute top-0 left-0 text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] text-muted-foreground select-none whitespace-pre font-mono"
+    >{shadowAscii}</pre>
+
+    <!-- Layer 3: Foreground typewriter animation -->
+    <pre class="absolute top-0 left-0 text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] text-foreground select-none whitespace-pre font-mono"><span data-text></span><span data-cursor style="display: none;" class="w-[0.8em] h-[1em] bg-muted-foreground/80 align-middle ml-[1px] animate-blink"></span></pre>
+
+    <noscript>
+      <pre class="absolute top-0 left-0 text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] text-foreground select-none whitespace-pre font-mono">{solidAscii}</pre>
+    </noscript>
+  </div>
+</div>
+
+<style>
+  @keyframes blink {
+    0%,
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .animate-blink {
+    animation: 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite blink;
+  }
+</style>
+
+<script>
+  function initAsciiAnimation() {
+    const containers = document.querySelectorAll<HTMLElement>(
+      ".ascii-logo-container",
+    );
+
+    containers.forEach((container) => {
+      if (container.dataset.initialized === "true") return;
+      container.dataset.initialized = "true";
+
+      const textEl = container.querySelector<HTMLElement>("[data-text]");
+      const cursorEl = container.querySelector<HTMLElement>("[data-cursor]");
+      const solidText = container.dataset.solid || "";
+      const delay = Number(container.dataset.delay || 100);
+      const duration = Number(container.dataset.duration || 450);
+
+      if (!textEl) return;
+
+      // Honor user's motion preferences
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        textEl.textContent = solidText;
+        if (cursorEl) {
+          cursorEl.style.display = "none";
+          cursorEl.remove();
+        }
+        return;
+      }
+
+      let cancel = false;
+      let timer: number | undefined;
+      let rafId: number | undefined;
+
+      // Wait for fonts to finish loading so the monospace grid doesn't shift mid-animation
+      document.fonts.ready.then(() => {
+        if (cancel) return;
+
+        timer = window.setTimeout(() => {
+          if (cursorEl) cursorEl.style.display = "inline-block";
+
+          const totalChars = solidText.length;
+          const startTime = performance.now();
+
+          const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const t = Math.min(elapsed / duration, 1);
+            // easeOutCubic easing curve identical to skills.sh
+            const eased = 1 - Math.pow(1 - t, 3);
+            const count = Math.floor(eased * totalChars);
+
+            textEl.textContent = solidText.slice(0, count);
+
+            if (t < 1) {
+              rafId = requestAnimationFrame(animate);
+            } else {
+              textEl.textContent = solidText;
+              if (cursorEl) {
+                cursorEl.style.display = "none";
+                cursorEl.remove();
+              }
+            }
+          };
+
+          rafId = requestAnimationFrame(animate);
+        }, delay);
+      });
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAsciiAnimation);
+  } else {
+    initAsciiAnimation();
+  }
+
+  document.addEventListener("astro:page-load", initAsciiAnimation);
+</script>

@@ -1,0 +1,32 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cn } from "@/lib/utils";
+
+type Props = HTMLAttributes<"div"> & {
+  orientation?: "horizontal" | "vertical";
+  decorative?: boolean;
+};
+
+const {
+  class: className,
+  orientation = "horizontal",
+  decorative = true,
+  "data-slot": dataSlot = "separator",
+  ...props
+} = Astro.props;
+---
+
+<div
+  data-slot={dataSlot}
+  data-orientation={orientation}
+  data-horizontal={orientation === "horizontal" ? "" : undefined}
+  data-vertical={orientation === "vertical" ? "" : undefined}
+  role={decorative ? "none" : "separator"}
+  aria-orientation={decorative ? undefined : orientation}
+  class={cn(
+    "bg-border shrink-0 data-horizontal:h-px data-horizontal:w-full data-vertical:w-px data-vertical:self-stretch",
+    className,
+  )}
+  {...props}
+></div>

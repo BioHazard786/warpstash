@@ -1,0 +1,20 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cn } from "@/lib/utils";
+
+type Props = HTMLAttributes<"span">;
+
+const { class: className, ...props } = Astro.props;
+---
+
+<span
+  data-slot="attachment-description"
+  class={cn(
+    "mt-0.5 text-xs text-muted-foreground group-data-[state=error]/attachment:text-destructive/80 block max-w-full min-w-0 truncate",
+    className,
+  )}
+  {...props}
+>
+  <slot />
+</span>
