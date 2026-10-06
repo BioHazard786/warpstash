@@ -19,8 +19,9 @@ Warpstash is a dead-simple, self-hosted file dropper. You upload a file, get a l
 
 ## 🚀 CLI in 5 Seconds
 
-Because opening a web browser is sometimes 3 clicks too many:
+Because opening a web browser is sometimes 3 clicks too many.
 
+### With `curl`
 ```bash
 # Upload a file (default: 24h expiration, returns raw URL)
 curl -F "file=@screenshot.png" https://files.example.com/
@@ -35,36 +36,37 @@ curl -F "file=@large_dump.sql" -F "time=1h" https://files.example.com/
 dmesg | curl -T - "https://files.example.com/upload?filename=dmesg.log&time=12h"
 ```
 
+### With `wget` *(for the curl contrarians)*
+```bash
+# Upload a file (returns raw direct URL)
+wget --post-file=report.pdf \
+     --header="X-Filename: report.pdf" \
+     --header="X-Expiry: 24h" \
+     https://files.example.com/upload -qO -
+
+# Burn after reading (self-destructs after 1 download)
+wget --post-file=secrets.env \
+     "https://files.example.com/upload?filename=secrets.env&burn=true" -qO -
+```
+
 ---
 
 ## 🐳 Self-Hosting
 
 ### The Easy Way (Docker Compose)
 
-Create a `docker-compose.yml`:
+Using the included [docker-compose.yml](docker-compose.yml):
 
-```yaml
-services:
-  warpstash:
-    image: warpstash:latest
-    build: .
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      - WARPSTASH_BASE_URL=https://files.example.com
-      - WARPSTASH_TRUST_PROXY=true
-      - WARPSTASH_MAX_FILE_SIZE_MB=1024 # 1 GB
-    volumes:
-      - warpstash_data:/data
-
-volumes:
-  warpstash_data:
-```
-
-Spin it up:
 ```bash
-docker compose up -d
+# 1. Clone & enter
+git clone https://github.com/your-username/warpstash.git
+cd warpstash
+
+# 2. Set your domain and settings
+cp .env.example .env
+
+# 3. Build and start
+docker compose up -d --build
 ```
 
 ### The Bare-Metal Way (Single Binary)
@@ -72,13 +74,10 @@ docker compose up -d
 If you prefer running binaries directly like an old-school sysadmin:
 
 ```bash
-# 1. Build the frontend (Node + pnpm)
-cd web && pnpm install && pnpm build && cd ..
+# 1. Build everything (frontend + standalone Go binary)
+make build
 
-# 2. Build the all-in-one executable
-go build -o warpstash ./cmd/warpstash
-
-# 3. Fire it up
+# 2. Fire it up
 ./warpstash --port 8080 --base-url https://files.example.com
 ```
 

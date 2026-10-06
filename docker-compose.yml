@@ -1,6 +1,5 @@
 services:
   warpstash:
-    image: warpstash:latest
     build:
       context: .
       dockerfile: Dockerfile
