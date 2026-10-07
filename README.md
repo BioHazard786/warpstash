@@ -111,15 +111,28 @@ warp-get https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 
 Using the included [docker-compose.yml](docker-compose.yml):
 
+#### Option 1: Quick Start (Official Pre-Built Image)
+Runs the official hosted image with default settings (1GB upload limit, 10 files per batch):
+
+```bash
+# 1. Grab docker-compose.prod.yml and start
+curl -fSL https://raw.githubusercontent.com/BioHazard786/warpstash/main/docker-compose.prod.yml -o docker-compose.yml
+docker compose up -d
+```
+
+#### Option 2: Custom Limits (Build from Source)
+If you want custom limits baked into the static frontend (e.g. 50MB limit, 5 files):
+
 ```bash
 # 1. Clone & enter
-git clone https://github.com/your-username/warpstash.git
+git clone https://github.com/BioHazard786/warpstash.git
 cd warpstash
 
-# 2. Set your domain and settings
+# 2. Set your custom limits in .env
 cp .env.example .env
+# Edit WARPSTASH_MAX_FILE_SIZE_MB and WARPSTASH_MAX_FILES in .env
 
-# 3. Build and start
+# 3. Build with your custom args and start
 docker compose up -d --build
 ```
 

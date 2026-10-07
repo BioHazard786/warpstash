@@ -1,0 +1,20 @@
+services:
+  warpstash:
+    image: ghcr.io/biohazard786/warpstash:latest
+    container_name: warpstash
+    restart: unless-stopped
+    ports:
+      - "${WARPSTASH_PORT:-8080}:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # In-container path overrides (guaranteed to match the container VOLUME)
+      - WARPSTASH_PORT=8080
+      - WARPSTASH_STORAGE_PATH=/data/storage
+      - WARPSTASH_DB_PATH=/data/warpstash.db
+    volumes:
+      - warpstash_data:/data
+
+volumes:
+  warpstash_data:
