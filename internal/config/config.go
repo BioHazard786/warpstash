@@ -13,6 +13,7 @@ import (
 
 // Config represents all application configuration parameters.
 type Config struct {
+	Version            string        `env:"WARPSTASH_VERSION" envDefault:"1.0.0"`
 	Port               string        `env:"WARPSTASH_PORT" envDefault:"8080"`
 	BaseURL            string        `env:"WARPSTASH_BASE_URL" envDefault:"http://localhost:8080"`
 	StoragePath        string        `env:"WARPSTASH_STORAGE_PATH" envDefault:"./data/storage"`
@@ -42,6 +43,7 @@ func LoadConfig() *Config {
 
 	// CLI flags override environment variables
 	if !flag.Parsed() && flag.CommandLine.Lookup("port") == nil {
+		flag.StringVar(&cfg.Version, "version", cfg.Version, "Warpstash application version")
 		flag.StringVar(&cfg.Port, "port", cfg.Port, "HTTP server listening port")
 		flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Canonical public base URL (e.g. https://files.example.com)")
 		flag.StringVar(&cfg.StoragePath, "storage-path", cfg.StoragePath, "Path to store uploaded files")

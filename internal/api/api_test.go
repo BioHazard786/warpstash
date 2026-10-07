@@ -39,6 +39,7 @@ func setupTestServer(t *testing.T, authToken string) (http.Handler, *database.DB
 	cleaner := gc.NewCleaner(db, store, 10*time.Second, 2)
 
 	cfg := &config.Config{
+		Version:            "1.0.0",
 		Port:               "8080",
 		BaseURL:            "http://localhost:8080",
 		StoragePath:        storageDir,
@@ -466,6 +467,27 @@ func TestServerInfoEndpoint(t *testing.T) {
 
 	if data["service"] != "Warpstash" {
 		t.Errorf("expected service Warpstash, got %v", data["service"])
+	}
+
+	if data["version"] != "1.0.0" {
+		t.Errorf("expected version 1.0.0, got %v", data["version"])
+	}
+
+	if data["max_file_size_human"] == nil || data["max_file_size_human"] == "" {
+		t.Errorf("expected max_file_size_human in response, got %v", data["max_file_size_human"])
+	}
+
+	if data["storage_used_human"] == nil || data["storage_used_human"] == "" {
+		t.Errorf("expected storage_used_human in response, got %v", data["storage_used_human"])
+	}
+
+	diskMap, ok := data["disk_space"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected disk_space to be an object, got %T", data["disk_space"])
+	}
+
+	if diskMap["total_human"] == nil || diskMap["total_human"] == "" {
+		t.Errorf("expected total_human in disk_space object")
 	}
 }
 

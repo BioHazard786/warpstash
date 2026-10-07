@@ -18,6 +18,7 @@ import (
 	"warpstash/internal/gc"
 	"warpstash/internal/logger"
 	"warpstash/internal/storage"
+	"warpstash/internal/util"
 )
 
 // RouterConfig bundles all dependencies needed to configure the HTTP routing engine.
@@ -140,15 +141,24 @@ func NewRouter(rc *RouterConfig) http.Handler {
 
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"service":           "Warpstash",
-			"version":           "1.0.0",
-			"max_file_size_mb":  rc.Config.MaxFileSizeMB,
-			"allowed_expiries":  rc.Config.AllowedExpiries,
-			"default_expiry":    rc.Config.DefaultExpiry,
-			"auth_required":     rc.Config.AuthToken != "",
-			"storage_used_bytes": dbUsage,
-			"disk_space":        diskSpace,
-			"purged_files":      rc.Cleaner.PurgedCount(),
+			"service":             "Warpstash",
+			"version":             rc.Config.Version,
+			"max_file_size_mb":    rc.Config.MaxFileSizeMB,
+			"max_file_size_human": util.FormatBytes(rc.Config.MaxFileSizeBytes()),
+			"allowed_expiries":    rc.Config.AllowedExpiries,
+			"default_expiry":      rc.Config.DefaultExpiry,
+			"auth_required":       rc.Config.AuthToken != "",
+			"storage_used_bytes":  dbUsage,
+			"storage_used_human":  util.FormatBytes(dbUsage),
+			"disk_space": map[string]any{
+				"total_bytes":     diskSpace.TotalBytes,
+				"total_human":     util.FormatBytes(int64(diskSpace.TotalBytes)),
+				"free_bytes":      diskSpace.FreeBytes,
+				"free_human":      util.FormatBytes(int64(diskSpace.FreeBytes)),
+				"available_bytes": diskSpace.AvailableBytes,
+				"available_human": util.FormatBytes(int64(diskSpace.AvailableBytes)),
+			},
+			"purged_files": rc.Cleaner.PurgedCount(),
 		})
 	})
 

@@ -55,6 +55,9 @@ func TestLoadConfigEnv(t *testing.T) {
 	}()
 
 	cfg := LoadConfig()
+	if cfg.Version != "1.0.0" {
+		t.Errorf("expected default version 1.0.0, got %s", cfg.Version)
+	}
 	if cfg.Port != "9090" {
 		t.Errorf("expected port 9090, got %s", cfg.Port)
 	}

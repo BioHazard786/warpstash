@@ -254,7 +254,7 @@ func (h *ServeHandler) renderBurnConfirmation(w http.ResponseWriter, file *datab
 			}
 
 			// 3. Pre-fill filesize in #burn-filesize
-			humanSize := formatBytes(file.SizeBytes)
+			humanSize := util.FormatBytes(file.SizeBytes)
 			if reBurnFilesize.MatchString(htmlStr) {
 				htmlStr = reBurnFilesize.ReplaceAllString(htmlStr, "${1}"+html.EscapeString(humanSize)+" &bull; Single-Use Delivery${3}")
 			}
@@ -363,24 +363,11 @@ func (h *ServeHandler) renderBurnConfirmation(w http.ResponseWriter, file *datab
 </html>`,
 		html.EscapeString(file.OriginalName),
 		html.EscapeString(file.OriginalName),
-		formatBytes(file.SizeBytes),
+		util.FormatBytes(file.SizeBytes),
 		downloadURL,
 	)
 
 	_, _ = w.Write([]byte(fallbackHTML))
-}
-
-func formatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 // renderBurnDestroyed outputs a 410 Gone response indicating the burn-after-reading file was consumed.
