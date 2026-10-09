@@ -50,6 +50,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            WARPSTASH_VERSION=${{ steps.vars.outputs.VERSION }}
           tags: |
             ${{ steps.imagename.outputs.name }}:${{ steps.vars.outputs.VERSION }}
             ${{ steps.imagename.outputs.name }}:latest
@@ -68,3 +70,80 @@ jobs:
           echo "Published: ${{ steps.imagename.outputs.name }}:${{ steps.vars.outputs.VERSION }}"
           echo "Also tagged: ${{ steps.imagename.outputs.name }}:latest"
           echo "Pull with: docker pull ${{ steps.imagename.outputs.name }}:${{ steps.vars.outputs.VERSION }}"
+
+  release-binaries:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build frontend static bundle
+        run: |
+          cd web
+          pnpm install
+          pnpm build
+          cd ..
+
+      - name: Build and package release binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          targets=(
+            "linux/amd64/warpstash"
+            "linux/arm64/warpstash"
+            "darwin/amd64/warpstash"
+            "darwin/arm64/warpstash"
+            "windows/amd64/warpstash.exe"
+          )
+          for target in "${targets[@]}"; do
+            IFS="/" read -r target_os target_arch target_bin <<< "$target"
+            output_dir="dist/${target_os}_${target_arch}"
+            mkdir -p "$output_dir"
+            echo "Building for ${target_os}/${target_arch}..."
+            CGO_ENABLED=0 GOOS=$target_os GOARCH=$target_arch go build \
+              -ldflags="-s -w -X warpstash/internal/config.Version=${VERSION}" \
+              -o "${output_dir}/${target_bin}" \
+              ./cmd/warpstash
+
+            archive_name="warpstash_${VERSION}_${target_os}_${target_arch}"
+            if [ "$target_os" = "windows" ]; then
+              (cd "$output_dir" && zip "../../dist/${archive_name}.zip" "$target_bin")
+            else
+              (cd "$output_dir" && tar -czvf "../../dist/${archive_name}.tar.gz" "$target_bin")
+            fi
+          done
+
+          cd dist
+          sha256sum warpstash_*.tar.gz warpstash_*.zip > checksums.txt
+          cat checksums.txt
+
+      - name: Publish GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          gh release create "$VERSION" \
+            dist/warpstash_*.tar.gz \
+            dist/warpstash_*.zip \
+            dist/checksums.txt \
+            --title "Warpstash $VERSION" \
+            --generate-notes
+

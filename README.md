@@ -219,6 +219,28 @@ You don't need a PhD in devops. Here are the only knobs you really care about:
 | `WARPSTASH_DEFAULT_EXPIRY` | `24h` | Expiration time if the user doesn't pick one (`1h`, `12h`, `24h`, `72h`) |
 | `WARPSTASH_AUTH_TOKEN` | *(none)* | Set a password if you want this to be your private secret clubhouse |
 | `WARPSTASH_TRUST_PROXY` | `false` | Flip to `true` if you're using Caddy, Nginx, or Cloudflare |
+| `WARPSTASH_TELEGRAM_BOT_TOKEN` | *(none)* | Telegram bot token from @BotFather (enables embedded MTProto bot) |
+| `WARPSTASH_TELEGRAM_APP_ID` | `0` | Telegram API App ID from my.telegram.org |
+| `WARPSTASH_TELEGRAM_APP_HASH` | *(none)* | Telegram API App Hash from my.telegram.org |
+| `WARPSTASH_TELEGRAM_ALLOWED_USERS` | *(none)* | Comma-separated allowed Telegram user IDs (empty allows all) |
+
+---
+
+## 🤖 Telegram MTProto Bot (Up to 2GB Files)
+
+Warpstash includes native MTProto support for Telegram bots—embedded directly into the binary with zero HTTP API overhead:
+
+1. Create a bot via [@BotFather](https://t.me/botfather) to get your `BOT_TOKEN`.
+2. Grab your `APP_ID` and `APP_HASH` from [my.telegram.org/apps](https://my.telegram.org/apps).
+3. Add them to your `.env`:
+   ```env
+   WARPSTASH_TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+   WARPSTASH_TELEGRAM_APP_ID=12345678
+   WARPSTASH_TELEGRAM_APP_HASH=abcdef0123456789...
+   # Optional whitelist: comma-separated Telegram user IDs
+   WARPSTASH_TELEGRAM_ALLOWED_USERS=
+   ```
+4. Start Warpstash (`docker compose up -d` or binary). The bot connects via MTProto, accepts large files (up to 2GB), prompts with inline retention buttons (`24h`, `72h`, `🔥 Burn`), streams directly to the server storage engine, and replies with instant shareable links. Complete panic recovery ensures bot issues never impact the web server.
 
 ---
 

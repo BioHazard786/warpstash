@@ -55,8 +55,8 @@ func TestLoadConfigEnv(t *testing.T) {
 	}()
 
 	cfg := LoadConfig()
-	if cfg.Version != "1.0.0" {
-		t.Errorf("expected default version 1.0.0, got %s", cfg.Version)
+	if cfg.Version != Version {
+		t.Errorf("expected version %s, got %s", Version, cfg.Version)
 	}
 	if cfg.Port != "9090" {
 		t.Errorf("expected port 9090, got %s", cfg.Port)
@@ -84,24 +84,12 @@ WARPSTASH_ALLOWED_EXPIRIES="1h,24h"
 	if _, err := tmpFile.WriteString(content); err != nil {
 		t.Fatal(err)
 	}
-	tmpFile.Close()
+	// Test loading via --env-file
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"warpstash", "--env-file", tmpFile.Name()}
 
-	// Clear potential environment pollution
-	_ = os.Unsetenv("WARPSTASH_PORT")
-	_ = os.Unsetenv("WARPSTASH_MAX_FILE_SIZE_MB")
-	_ = os.Unsetenv("WARPSTASH_ALLOWED_EXPIRIES")
-
-	cfg := &Config{}
-	_ = os.Setenv("WARPSTASH_PORT", "7777")
-	_ = os.Setenv("WARPSTASH_MAX_FILE_SIZE_MB", "256")
-	_ = os.Setenv("WARPSTASH_ALLOWED_EXPIRIES", "1h,24h")
-	defer func() {
-		_ = os.Unsetenv("WARPSTASH_PORT")
-		_ = os.Unsetenv("WARPSTASH_MAX_FILE_SIZE_MB")
-		_ = os.Unsetenv("WARPSTASH_ALLOWED_EXPIRIES")
-	}()
-
-	cfg = LoadConfig()
+	cfg := LoadConfig()
 
 	if cfg.Port != "7777" {
 		t.Errorf("expected port 7777, got %q", cfg.Port)
@@ -111,6 +99,9 @@ WARPSTASH_ALLOWED_EXPIRIES="1h,24h"
 	}
 	if len(cfg.AllowedExpiries) != 2 || cfg.AllowedExpiries[0] != "1h" || cfg.AllowedExpiries[1] != "24h" {
 		t.Errorf("expected [1h 24h], got %v", cfg.AllowedExpiries)
+	}
+	if cfg.LoadedEnvFile != tmpFile.Name() {
+		t.Errorf("expected LoadedEnvFile %q, got %q", tmpFile.Name(), cfg.LoadedEnvFile)
 	}
 }
 

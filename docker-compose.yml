@@ -6,6 +6,7 @@ services:
       args:
         WARPSTASH_MAX_FILE_SIZE_MB: ${WARPSTASH_MAX_FILE_SIZE_MB:-1024}
         WARPSTASH_MAX_FILES: ${WARPSTASH_MAX_FILES:-10}
+        WARPSTASH_VERSION: ${WARPSTASH_VERSION:-v1.0.0}
     container_name: warpstash
     restart: unless-stopped
     ports:

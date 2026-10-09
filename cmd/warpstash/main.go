@@ -12,6 +12,7 @@ import (
 
 	"warpstash"
 	"warpstash/internal/api"
+	"warpstash/internal/bot"
 	"warpstash/internal/config"
 	"warpstash/internal/database"
 	"warpstash/internal/gc"
@@ -28,12 +29,15 @@ func main() {
 	l := logger.Init(os.Getenv("WARPSTASH_LOG_LEVEL"), logFormat)
 
 	l.Info("starting Warpstash server",
+		"version", cfg.Version,
 		"port", cfg.Port,
 		"base_url", cfg.BaseURL,
 		"storage_path", cfg.StoragePath,
 		"db_path", cfg.DBPath,
 		"max_file_size_mb", cfg.MaxFileSizeMB,
 		"auth_enabled", cfg.AuthToken != "",
+		"telegram_bot_enabled", cfg.TelegramEnabled(),
+		"loaded_env_file", cfg.LoadedEnvFile,
 	)
 
 	// 1. Initialize SQLite Database (WAL mode, pure Go)
@@ -77,6 +81,14 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
+	// 5. Start Telegram MTProto Bot (if configured)
+	if cfg.TelegramEnabled() {
+		bot.Start(appCtx, cfg, db, store, l)
+	}
+
 	// Listen for OS signals for graceful shutdown
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
@@ -91,6 +103,7 @@ func main() {
 
 	<-stopChan
 	l.Info("shutting down Warpstash server gracefully...")
+	appCancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()

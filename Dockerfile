@@ -44,8 +44,9 @@ RUN go mod download
 COPY . .
 COPY --from=frontend-builder /app/web/dist ./web/dist
 
-# Build fully static binary (zero CGO)
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/warpstash ./cmd/warpstash
+# Build fully static binary (zero CGO) with embedded version
+ARG WARPSTASH_VERSION=v1.0.0
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X warpstash/internal/config.Version=${WARPSTASH_VERSION}" -o /app/warpstash ./cmd/warpstash
 
 # ==========================================
 # Stage 3: Ultra-Minimal Production Runner
