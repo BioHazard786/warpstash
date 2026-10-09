@@ -1,6 +1,6 @@
 # Stage 1: Build Frontend (Astro 5 + Vite)
 # ==========================================
-FROM node:22-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 WORKDIR /app/web
 
 # Copy package.json and install dependencies
@@ -25,7 +25,7 @@ RUN npm run build
 # ==========================================
 # Stage 2: Build Backend (Go 1.26 Static Binary)
 # ==========================================
-FROM golang:1.26-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
 WORKDIR /app
 
 # Install CA certificates and timezone database
@@ -44,9 +44,11 @@ RUN go mod download
 COPY . .
 COPY --from=frontend-builder /app/web/dist ./web/dist
 
-# Build fully static binary (zero CGO) with embedded version
+# Build fully static binary (zero CGO) with embedded version and native cross-compilation
+ARG TARGETOS
+ARG TARGETARCH
 ARG WARPSTASH_VERSION=v1.0.0
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X warpstash/internal/config.Version=${WARPSTASH_VERSION}" -o /app/warpstash ./cmd/warpstash
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-s -w -X warpstash/internal/config.Version=${WARPSTASH_VERSION}" -o /app/warpstash ./cmd/warpstash
 
 # ==========================================
 # Stage 3: Ultra-Minimal Production Runner

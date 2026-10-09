@@ -10,9 +10,10 @@ Warpstash is a dead-simple, self-hosted file dropper. You upload a file, get a l
 
 Want to kick the tires without setting anything up? Check out the live instance:
 
-👉 **[https://warpstash.biohazard.qzz.io/](https://warpstash.biohazard.qzz.io/)**
+👉 **Web:** [https://warpstash.biohazard.qzz.io/](https://warpstash.biohazard.qzz.io/)  
+👉 **Telegram Bot:** [@warpstash_bot](https://t.me/warpstash_bot)
 
-> Hosted on an Oracle Cloud Free Tier VPS with a measly **50MB file limit** and **5GB disk space** lmao. Please don't try to stash your 4K bluray rips or the server will cry.
+> Hosted on an Oracle Cloud Free Tier VPS with a measly **50MB file limit** (shared across both web and Telegram bot) and **5GB disk space** lmao. Please don't try to stash your 4K bluray rips or the server will cry.
 
 ---
 
@@ -227,6 +228,8 @@ You don't need a PhD in devops. Here are the only knobs you really care about:
 ---
 
 ## 🤖 Telegram MTProto Bot (Up to 2GB Files)
+
+Try the live bot: [@warpstash_bot](https://t.me/warpstash_bot) *(shares the same 50MB limit as the live demo HTTP service).*
 
 Warpstash includes native MTProto support for Telegram bots—embedded directly into the binary with zero HTTP API overhead:
 
