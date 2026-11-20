@@ -1,0 +1,39 @@
+---
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import Layout from "@/layouts/Layout.astro";
+
+interface Props {
+  code: string;
+  title: string;
+  description: string;
+  action?: string;
+}
+
+const { code, title, description, action = "Back to Home" } = Astro.props;
+---
+
+<Layout title={`${code} - Warpstash`} description={description}>
+  <main class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 pt-16 sm:px-6">
+    <Empty class="flex-none border-2 border-dashed py-12">
+      <EmptyHeader>
+        <div class="font-pixel text-6xl leading-none" aria-hidden="true">
+          {code}
+        </div>
+        <EmptyTitle class="text-base">{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button href="/" as="a" variant="outline">
+          {action}
+        </Button>
+      </EmptyContent>
+    </Empty>
+  </main>
+</Layout>

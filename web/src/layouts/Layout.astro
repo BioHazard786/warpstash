@@ -1,5 +1,7 @@
 ---
 import Header from "@/components/Header.astro";
+import IconTemplates from "@/components/IconTemplates.astro";
+import { ThemeProvider } from "@/components/ui/theme-toggle";
 import "@/styles/global.css";
 
 interface Props {
@@ -11,12 +13,12 @@ interface Props {
 const {
   title = "Warpstash — Minimalist Temporary File Storage",
   description = "Self-hostable temporary file storage with auto-expiration and burn-after-reading. Works with curl, wget, and your browser.",
-  header = false,
+  header = true,
 } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -27,6 +29,7 @@ const {
     <meta name="apple-mobile-web-app-title" content="Warpstash" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="generator" content={Astro.generator} />
+    <ThemeProvider />
     <title>{title}</title>
     <meta name="description" content={description} />
 
@@ -40,8 +43,24 @@ const {
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
   </head>
-  <body class="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased">
+  <body class="bg-background text-foreground flex min-h-svh flex-col font-sans antialiased">
     {header && <Header />}
     <slot />
+    <IconTemplates />
+    <footer class="mx-auto mt-auto w-full max-w-3xl px-4 pt-10 pb-8 sm:px-6">
+      <div class="text-muted-foreground flex items-center gap-1 font-mono text-xs before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+        <span class="px-1">
+          warpstash ·
+          <a
+            href="https://github.com/BioHazard786/warpstash"
+            target="_blank"
+            rel="noreferrer"
+            class="underline underline-offset-3 hover:text-foreground"
+          >
+            open source
+          </a>
+        </span>
+      </div>
+    </footer>
   </body>
 </html>

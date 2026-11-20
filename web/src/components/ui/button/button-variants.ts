@@ -12,9 +12,14 @@ export const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground",
+        // shadcn/ui uses text-destructive, about 4:1 on the button's tint.
+        // Mixing in a fifth of the foreground keeps 4.5:1, as the native Liquid
+        // button does.
         destructive:
-          "bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-[color-mix(in_oklab,var(--destructive)_80%,var(--foreground))] focus-visible:border-destructive/40 dark:hover:bg-destructive/30",
+        // shadcn/ui uses text-primary, below 4.5:1 in dark mode with most theme
+        // colors. A lighter step of the primary keeps 4.5:1 there.
+        link: "text-(--fd-link,var(--primary)) dark:supports-[color:oklch(from_red_l_c_h)]:[--fd-link:oklch(from_var(--primary)_max(l,0.7)_calc(c*1.2)_h)] underline-offset-4 hover:underline",
       },
       size: {
         default:

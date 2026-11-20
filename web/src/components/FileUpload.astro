@@ -1,5 +1,5 @@
 ---
-import { Button } from "@/components/ui/button";
+import Section from "@/components/Section.astro";
 import {
   Attachment,
   AttachmentAction,
@@ -9,29 +9,21 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@/components/ui/attachment";
-import { Spinner } from "@/components/ui/spinner";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  FileUp,
-  FileText,
-  FileArchive,
-  FileSpreadsheet,
-  Video,
-  Headphones,
-  Image as ImageIcon,
-  File as FileIcon,
-  X,
-  CircleAlert,
-  CloudUpload,
-  Check,
-  Copy,
-  Download,
-  Flame,
-  ExternalLink,
-  Clock,
-  RefreshCw,
-} from "@lucide/astro";
+  IconAlertCircle,
+  IconArrowUp,
+  IconCloudUpload,
+  IconCopy,
+  IconDownload,
+  IconExternalLink,
+  IconFlame,
+  IconRefresh,
+  IconX,
+} from "@tabler/icons-astro";
 
 import {
   Empty,
@@ -54,91 +46,112 @@ const {
 ---
 
 <div
-  class="flex flex-col gap-3 w-full"
+  class="flex w-full flex-col gap-3"
   id="coss-file-upload"
   data-max-size-mb={maxSizeMB}
   data-max-files={maxFiles}
 >
-  <!-- Expiry & Burn Selector Row -->
-  <div class="flex items-center md:justify-end justify-start">
+  <Section title="Upload">
     <ToggleGroup
+      slot="aside"
       id="expiry-toggle-group"
       variant="outline"
       size="sm"
+      spacing={0}
       defaultValue="24h"
     >
-      <ToggleGroupItem value="1h">1h</ToggleGroupItem>
-      <ToggleGroupItem value="12h">12h</ToggleGroupItem>
-      <ToggleGroupItem value="24h">24h</ToggleGroupItem>
-      <ToggleGroupItem value="72h">72h</ToggleGroupItem>
+      <ToggleGroupItem value="1h" class="font-mono text-xs">
+        1h
+      </ToggleGroupItem>
+      <ToggleGroupItem value="12h" class="font-mono text-xs">
+        12h
+      </ToggleGroupItem>
+      <ToggleGroupItem value="24h" class="font-mono text-xs">
+        24h
+      </ToggleGroupItem>
+      <ToggleGroupItem value="72h" class="font-mono text-xs">
+        72h
+      </ToggleGroupItem>
       <ToggleGroupItem
         value="burn"
-        class="data-[state=on]:bg-destructive/15 data-[state=on]:text-destructive data-[state=on]:border-destructive/40 text-destructive/80 hover:text-destructive"
+        class="text-destructive/80 hover:text-destructive data-[state=on]:bg-destructive/15 data-[state=on]:text-destructive data-[state=on]:border-destructive/40 font-mono text-xs"
         title="Burn after reading (destroyed upon first view)"
       >
-        <Flame />
+        <IconFlame />
         Burn
       </ToggleGroupItem>
     </ToggleGroup>
-  </div>
 
-  <!-- Drop area based on Coss UI specs -->
-  <div
-    id="drop-zone"
-    class="flex min-h-44 flex-col items-center justify-center rounded-xl border-2 border-input border-dashed p-6 transition-colors hover:bg-accent/30 cursor-pointer text-center relative select-none"
-    role="button"
-    tabindex="0"
-  >
-    <input
-      id="file-input"
-      type="file"
-      multiple
-      class="sr-only"
-      aria-label="Upload files"
-    />
+    <div
+      id="drop-zone"
+      class="group/drop border-input hover:border-ring hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-ring/50 data-[over]:border-foreground data-[over]:bg-muted/60 relative flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-colors outline-none select-none focus-visible:ring-3"
+      role="button"
+      tabindex="0"
+      aria-label="Upload files: drop here or press Enter to browse"
+    >
+      <input
+        id="file-input"
+        type="file"
+        multiple
+        class="sr-only"
+        tabindex="-1"
+        aria-hidden="true"
+      />
 
-    <Empty class="gap-2 p-2">
-      <EmptyHeader>
-        <EmptyMedia variant="icon" class="size-10">
-          <FileUp class="size-5" />
-        </EmptyMedia>
-        <EmptyTitle class="text-base">Upload files</EmptyTitle>
-        <EmptyDescription>Drag & drop or click to browse</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent class="text-muted-foreground">
-        All files ∙ Max {maxFiles} files ∙ Up to{" "}
-        {maxSizeMB >= 1024 ? `${maxSizeMB / 1024} GB` : `${maxSizeMB} MB`}
-      </EmptyContent>
-    </Empty>
-  </div>
-
-  <!-- Error banner -->
-  <div
-    id="error-banner"
-    class="hidden items-center gap-1.5 text-destructive text-xs py-1"
-    role="alert"
-  >
-    <CircleAlert class="size-3.5 shrink-0" />
-    <span id="error-message"></span>
-  </div>
-
-  <!-- File list container -->
-  <div id="file-list-container" class="space-y-3 hidden">
-    <!-- Vertical list of attachments styled with fulldev ui / shadcn Attachment -->
-    <div id="file-items" class="flex flex-col gap-2 w-full"></div>
-
-    <!-- Multi-file action bar -->
-    <Separator id="action-bar-separator" />
-    <div id="action-bar" class="flex items-center justify-between gap-2">
-      <Button id="clear-all-btn" variant="outline" size="sm">
-        Remove all
-      </Button>
-      <Button id="upload-all-btn" size="sm">
-        <CloudUpload />
-        <span id="upload-btn-text">Upload to Warpstash</span>
-      </Button>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia
+            variant="icon"
+            class="size-11 rounded-xl transition-transform group-hover/drop:-translate-y-0.5 group-data-[over]/drop:-translate-y-1 group-data-[over]/drop:bg-foreground group-data-[over]/drop:text-background"
+          >
+            <IconArrowUp class="size-5" />
+          </EmptyMedia>
+          <EmptyTitle class="text-base" id="drop-title">
+            Drop files to upload
+          </EmptyTitle>
+          <EmptyDescription>
+            or click to browse. Files are stored on the server until they
+            expire, then deleted. No account, no tracking.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent class="text-muted-foreground flex-row justify-center font-mono text-xs">
+          <Kbd>up to {maxFiles} files</Kbd>
+          <Kbd>
+            {maxSizeMB >= 1024 ? `${maxSizeMB / 1024} GB` : `${maxSizeMB} MB`}{" "}
+            each
+          </Kbd>
+        </EmptyContent>
+      </Empty>
     </div>
-  </div>
+
+    <!-- Error banner -->
+    <div
+      id="error-banner"
+      class="text-destructive hidden items-center gap-1.5 py-1 text-xs"
+      role="alert"
+    >
+      <IconAlertCircle class="size-3.5 shrink-0" />
+      <span id="error-message"></span>
+    </div>
+
+    <!-- File list container -->
+    <div id="file-list-container" class="space-y-3 hidden">
+      <!-- Vertical list of attachments styled with fulldev ui / shadcn Attachment -->
+      <div id="file-items" class="flex flex-col gap-2 w-full"></div>
+
+      <!-- Multi-file action bar -->
+      <Separator id="action-bar-separator" />
+      <div id="action-bar" class="flex items-center justify-between gap-2">
+        <Button id="clear-all-btn" variant="outline" size="sm">
+          Remove all
+        </Button>
+        <Button id="upload-all-btn" size="sm">
+          <IconCloudUpload />
+          <span id="upload-btn-text">Upload to Warpstash</span>
+        </Button>
+      </div>
+    </div>
+  </Section>
 
   <!-- Hidden Attachment Component Template (pre-rendered with shadcn CVA styling) -->
   <template id="attachment-item-template">
@@ -148,65 +161,13 @@ const {
       </AttachmentMedia>
       <AttachmentContent>
         <AttachmentTitle class="attachment-title" />
-        <AttachmentDescription class="attachment-desc" />
+        <AttachmentDescription class="attachment-desc font-mono tabular-nums" />
       </AttachmentContent>
       <AttachmentActions class="attachment-actions">
         <!-- Action buttons -->
       </AttachmentActions>
     </Attachment>
   </template>
-
-  <!-- Pre-rendered Lucide / Spinner Icons for Client Clones -->
-  <div id="icon-templates" class="hidden" aria-hidden="true">
-    <div data-icon="spinner">
-      <Spinner />
-    </div>
-    <div data-icon="clock">
-      <Clock class="opacity-70" />
-    </div>
-    <div data-icon="check">
-      <Check class="text-emerald-500" />
-    </div>
-    <div data-icon="error">
-      <CircleAlert class="text-destructive" />
-    </div>
-    <div data-icon="refresh">
-      <RefreshCw />
-    </div>
-    <div data-icon="x">
-      <X />
-    </div>
-    <div data-icon="copy">
-      <Copy />
-    </div>
-    <div data-icon="copied">
-      <Check class="text-emerald-500" />
-    </div>
-    <div data-icon="external">
-      <ExternalLink />
-    </div>
-    <div data-icon="file-text">
-      <FileText class="opacity-70" />
-    </div>
-    <div data-icon="file-archive">
-      <FileArchive class="opacity-70" />
-    </div>
-    <div data-icon="file-spreadsheet">
-      <FileSpreadsheet class="opacity-70" />
-    </div>
-    <div data-icon="video">
-      <Video class="opacity-70" />
-    </div>
-    <div data-icon="headphones">
-      <Headphones class="opacity-70" />
-    </div>
-    <div data-icon="image">
-      <ImageIcon class="opacity-70" />
-    </div>
-    <div data-icon="file">
-      <FileIcon class="opacity-70" />
-    </div>
-  </div>
 
   <!-- Pre-rendered Action Buttons -->
   <div id="action-templates" class="hidden" aria-hidden="true">
@@ -215,28 +176,28 @@ const {
       aria-label="Remove file"
       title="Remove file"
     >
-      <X />
+      <IconX />
     </AttachmentAction>
     <AttachmentAction
       data-action-type="cancel"
       aria-label="Cancel upload"
       title="Cancel upload"
     >
-      <X />
+      <IconX />
     </AttachmentAction>
     <AttachmentAction
       data-action-type="retry"
       aria-label="Retry upload"
       title="Retry upload"
     >
-      <RefreshCw />
+      <IconRefresh />
     </AttachmentAction>
     <AttachmentAction
       data-action-type="copy"
       aria-label="Copy link"
       title="Copy link"
     >
-      <Copy />
+      <IconCopy />
     </AttachmentAction>
     <AttachmentAction
       as="a"
@@ -244,7 +205,7 @@ const {
       aria-label="Download file"
       title="Download file"
     >
-      <Download />
+      <IconDownload />
     </AttachmentAction>
     <AttachmentAction
       as="a"
@@ -254,12 +215,14 @@ const {
       target="_blank"
       rel="noopener noreferrer"
     >
-      <ExternalLink />
+      <IconExternalLink />
     </AttachmentAction>
   </div>
 </div>
 
 <script>
+  import { cloneIcon, fileIconKey, formatBytes, isImage } from "@/lib/files";
+
   interface FileItem {
     id: string;
     file: File;
@@ -305,9 +268,6 @@ const {
   const attachmentTemplate = document.getElementById(
     "attachment-item-template",
   ) as HTMLTemplateElement;
-  const iconTemplates = document.getElementById(
-    "icon-templates",
-  ) as HTMLDivElement;
   const actionTemplates = document.getElementById(
     "action-templates",
   ) as HTMLDivElement;
@@ -334,25 +294,6 @@ const {
     }
   });
 
-  // Format bytes helper
-  function formatBytes(bytes: number, decimals = 1): string {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-  }
-
-  // Clone pre-rendered icons
-  function getIconClone(name: string): HTMLElement {
-    const iconWrap = iconTemplates.querySelector(`[data-icon="${name}"]`);
-    if (!iconWrap || !iconWrap.firstElementChild) {
-      return document.createElement("span");
-    }
-    return iconWrap.firstElementChild.cloneNode(true) as HTMLElement;
-  }
-
   // Clone pre-rendered action buttons
   function getActionClone(type: string): HTMLElement {
     const actionEl = actionTemplates.querySelector(
@@ -362,53 +303,6 @@ const {
       return document.createElement("button");
     }
     return actionEl.cloneNode(true) as HTMLElement;
-  }
-
-  // File icon categorizer
-  function getFileIconType(name: string, type: string): string {
-    const ext = name.split(".").pop()?.toLowerCase() || "";
-    if (
-      ["pdf", "doc", "docx", "txt", "md", "rtf"].includes(ext) ||
-      type.includes("pdf") ||
-      type.includes("text")
-    ) {
-      return "file-text";
-    }
-    if (
-      ["zip", "tar", "gz", "rar", "7z", "bz2", "xz"].includes(ext) ||
-      type.includes("zip") ||
-      type.includes("archive") ||
-      type.includes("compressed")
-    ) {
-      return "file-archive";
-    }
-    if (
-      ["xls", "xlsx", "csv", "tsv", "ods"].includes(ext) ||
-      type.includes("spreadsheet") ||
-      type.includes("excel") ||
-      type.includes("csv")
-    ) {
-      return "file-spreadsheet";
-    }
-    if (
-      ["mp4", "mkv", "webm", "mov", "avi", "wmv", "flv"].includes(ext) ||
-      type.startsWith("video/")
-    ) {
-      return "video";
-    }
-    if (
-      ["mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"].includes(ext) ||
-      type.startsWith("audio/")
-    ) {
-      return "headphones";
-    }
-    if (
-      ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"].includes(ext) ||
-      type.startsWith("image/")
-    ) {
-      return "image";
-    }
-    return "file";
   }
 
   // Handle errors
@@ -442,10 +336,9 @@ const {
         continue;
       }
 
-      const isImage =
-        f.type.startsWith("image/") ||
-        /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(f.name);
-      const previewUrl = isImage ? URL.createObjectURL(f) : undefined;
+      const previewUrl = isImage(f.name, f.type)
+        ? URL.createObjectURL(f)
+        : undefined;
 
       files.push({
         id: Math.random().toString(36).substring(2, 11),
@@ -508,14 +401,14 @@ const {
         const spinnerOverlay = document.createElement("div");
         spinnerOverlay.className =
           "absolute inset-0 flex items-center justify-center text-foreground";
-        spinnerOverlay.appendChild(getIconClone("spinner"));
+        spinnerOverlay.appendChild(cloneIcon("spinner"));
         mediaEl.appendChild(spinnerOverlay);
       } else {
-        mediaEl.appendChild(getIconClone("spinner"));
+        mediaEl.appendChild(cloneIcon("spinner"));
       }
     } else if (state === "error") {
       mediaEl.setAttribute("data-variant", "icon");
-      mediaEl.appendChild(getIconClone("error"));
+      mediaEl.appendChild(cloneIcon("error"));
     } else if (state === "done") {
       if (item.previewUrl) {
         mediaEl.setAttribute("data-variant", "image");
@@ -528,11 +421,11 @@ const {
         const checkBadge = document.createElement("div");
         checkBadge.className =
           "absolute bottom-1 right-1 size-3.5 rounded-full bg-background/90 flex items-center justify-center shadow-xs text-emerald-500";
-        checkBadge.appendChild(getIconClone("copied"));
+        checkBadge.appendChild(cloneIcon("check"));
         mediaEl.appendChild(checkBadge);
       } else {
         mediaEl.setAttribute("data-variant", "icon");
-        mediaEl.appendChild(getIconClone("check"));
+        mediaEl.appendChild(cloneIcon("check"));
       }
     } else {
       // idle state
@@ -545,8 +438,8 @@ const {
         mediaEl.appendChild(img);
       } else {
         mediaEl.setAttribute("data-variant", "icon");
-        const fileIconType = getFileIconType(item.file.name, item.file.type);
-        mediaEl.appendChild(getIconClone(fileIconType));
+        const fileIconType = fileIconKey(item.file.name, item.file.type);
+        mediaEl.appendChild(cloneIcon(fileIconType));
       }
     }
   }
@@ -618,10 +511,10 @@ const {
         copyBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           if (item.url) {
-            navigator.clipboard.writeText(item.url);
+            navigator.clipboard?.writeText(item.url).catch(() => {});
             const originalContent = copyBtn.innerHTML;
             copyBtn.innerHTML = "";
-            copyBtn.appendChild(getIconClone("copied"));
+            copyBtn.appendChild(cloneIcon("check"));
             copyBtn.setAttribute("title", "Copied to clipboard!");
             setTimeout(() => {
               copyBtn.innerHTML = originalContent;
@@ -707,7 +600,7 @@ const {
         descText = `Upload failed · ${item.error || "Try again"}`;
       } else if (attachmentState === "done") {
         descText = item.isBurn
-          ? `🔥 Burn on read · ${formatBytes(item.file.size)}`
+          ? `Burn on read · ${formatBytes(item.file.size)}`
           : `Uploaded · ${formatBytes(item.file.size)}`;
       }
       descEl.textContent = descText;
@@ -778,11 +671,11 @@ const {
     const allDone = files.every((f) => f.status === "done");
 
     if (allDone) {
-      uploadAllBtn.classList.add("hidden");
+      uploadAllBtn.hidden = true; // not the `hidden` class: the button's inline-flex would win
       clearAllBtn.textContent = "Clear completed";
       actionBarSeparator?.classList.add("hidden");
     } else {
-      uploadAllBtn.classList.remove("hidden");
+      uploadAllBtn.hidden = false;
       clearAllBtn.textContent = "Remove all";
       actionBarSeparator?.classList.remove("hidden");
     }
@@ -926,6 +819,9 @@ const {
         resolve();
       };
 
+      // abort() fires neither onload nor onerror; without this the sequential upload loop awaits forever.
+      xhr.onabort = () => resolve();
+
       xhr.open("POST", uploadUrl);
       xhr.setRequestHeader("Accept", "application/json");
       xhr.setRequestHeader("X-Expiry", selectedExpiry);
@@ -981,6 +877,14 @@ const {
 
   // Drag and drop event listeners
   dropZone.addEventListener("click", () => fileInput.click());
+  // The input lives inside the drop zone; don't let its own click re-trigger the zone.
+  fileInput.addEventListener("click", (e) => e.stopPropagation());
+  dropZone.addEventListener("keydown", (e) => {
+    if (e.target === dropZone && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
 
   fileInput.addEventListener("change", () => {
     if (fileInput.files) {
@@ -989,25 +893,42 @@ const {
     }
   });
 
-  ["dragenter", "dragover"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.add("bg-accent/40", "border-primary");
-    });
-  });
+  // dragenter/dragleave also fire for every child element, so count depth instead of toggling on each event.
+  let dragDepth = 0;
+  const dropTitle = document.getElementById("drop-title");
+  const setOver = (over: boolean) => {
+    dropZone.toggleAttribute("data-over", over);
+    if (dropTitle) {
+      dropTitle.textContent = over
+        ? "Release to upload"
+        : "Drop files to upload";
+    }
+  };
 
-  ["dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.remove("bg-accent/40", "border-primary");
-    });
+  dropZone.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    dragDepth++;
+    setOver(true);
+  });
+  dropZone.addEventListener("dragover", (e) => e.preventDefault());
+  dropZone.addEventListener("dragleave", () => {
+    if (--dragDepth <= 0) {
+      dragDepth = 0;
+      setOver(false);
+    }
   });
 
   dropZone.addEventListener("drop", (e) => {
-    if (e.dataTransfer?.files) {
-      addFiles(e.dataTransfer.files);
+    e.preventDefault();
+    dragDepth = 0;
+    setOver(false);
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    if ([...dt.items].some((i) => i.webkitGetAsEntry?.()?.isDirectory)) {
+      clearError();
+      showError("Folders aren't supported. Zip the folder first.");
+      return;
     }
+    addFiles(dt.files);
   });
 </script>

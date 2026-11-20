@@ -1,7 +1,6 @@
 ---
 import type { ComponentProps } from "astro/types";
-import Moon from "@lucide/astro/icons/moon";
-import Sun from "@lucide/astro/icons/sun";
+import { IconBrightness } from "@tabler/icons-astro";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,8 +23,7 @@ const {
   class={cn("relative", className)}
   {...props}
 >
-  <Sun class="dark:hidden" />
-  <Moon class="hidden dark:block" />
+  <IconBrightness />
   <span class="sr-only">Toggle theme</span>
 </Button>
 

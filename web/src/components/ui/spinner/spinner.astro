@@ -1,21 +1,15 @@
 ---
 import type { HTMLAttributes } from "astro/types";
-import LoaderCircle from "@lucide/astro/icons/loader-circle";
+import { IconLoader2 } from "@tabler/icons-astro";
 
 import { cn } from "@/lib/utils";
 
-type Props = HTMLAttributes<"svg"> & {
-  color?: string;
-  size?: number | string;
-  "stroke-width"?: number | string;
-  absoluteStrokeWidth?: boolean;
-  title?: string;
-};
+type Props = HTMLAttributes<"svg">;
 
 const { class: className, ...props } = Astro.props;
 ---
 
-<LoaderCircle
+<IconLoader2
   data-slot="spinner"
   role="status"
   aria-label="Loading"

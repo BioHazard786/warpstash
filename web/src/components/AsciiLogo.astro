@@ -27,6 +27,8 @@ const solidAscii = `██     ██  █████  ██████  █�
 ---
 
 <div
+  role="img"
+  aria-label="Warpstash"
   class={cn(
     "ascii-logo-container relative w-full flex items-start justify-start overflow-hidden",
     className,
@@ -49,7 +51,10 @@ const solidAscii = `██     ██  █████  ██████  █�
     >{shadowAscii}</pre>
 
     <!-- Layer 3: Foreground typewriter animation -->
-    <pre class="absolute top-0 left-0 text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] text-foreground select-none whitespace-pre font-mono"><span data-text></span><span data-cursor style="display: none;" class="w-[0.8em] h-[1em] bg-muted-foreground/80 align-middle ml-[1px] animate-blink"></span></pre>
+    <pre
+      aria-hidden="true"
+      class="absolute top-0 left-0 text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] text-foreground select-none whitespace-pre font-mono"
+    ><span data-text></span><span data-cursor style="display: none;" class="w-[0.8em] h-[1em] bg-muted-foreground/80 align-middle ml-[1px] animate-blink"></span></pre>
 
     <noscript>
       <pre class="absolute top-0 left-0 text-[8.5px] sm:text-[11px] md:text-[12.5px] lg:text-[14px] tracking-[-1px] leading-[125%] text-foreground select-none whitespace-pre font-mono">{solidAscii}</pre>

@@ -1,6 +1,6 @@
 ---
 import type { HTMLAttributes } from "astro/types";
-import XIcon from "@lucide/astro/icons/x";
+import { IconX } from "@tabler/icons-astro";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ const {
         size="icon-sm"
         class="absolute top-2 right-2"
       >
-        <XIcon />
+        <IconX />
         <span class="sr-only">Close</span>
       </Button>
     )}

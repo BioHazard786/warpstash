@@ -1,0 +1,95 @@
+---
+import {
+  IconAlertCircle,
+  IconBinary,
+  IconBook,
+  IconBraces,
+  IconCertificate,
+  IconCheck,
+  IconDatabase,
+  IconDisc,
+  IconFile,
+  IconFileCode,
+  IconFileMusic,
+  IconFileSpreadsheet,
+  IconFileText,
+  IconFileTypeCss,
+  IconFileTypeCsv,
+  IconFileTypeDoc,
+  IconFileTypeHtml,
+  IconFileTypeJs,
+  IconFileTypePdf,
+  IconFileTypePpt,
+  IconFileTypeSql,
+  IconFileTypeSvg,
+  IconFileTypeTs,
+  IconFileTypeTsx,
+  IconFileTypeTxt,
+  IconFileTypeXls,
+  IconFileTypeXml,
+  IconFileTypeZip,
+  IconFileTypography,
+  IconKey,
+  IconLoader2,
+  IconMarkdown,
+  IconMovie,
+  IconPackage,
+  IconPhoto,
+  IconTerminal2,
+} from "@tabler/icons-astro";
+
+// Keys must match the values returned by fileIconKey in lib/files.ts.
+const fileIcons = {
+  file: IconFile,
+  "file-text": IconFileText,
+  "file-music": IconFileMusic,
+  "file-code": IconFileCode,
+  "file-spreadsheet": IconFileSpreadsheet,
+  "file-typography": IconFileTypography,
+  "file-type-css": IconFileTypeCss,
+  "file-type-csv": IconFileTypeCsv,
+  "file-type-doc": IconFileTypeDoc,
+  "file-type-html": IconFileTypeHtml,
+  "file-type-js": IconFileTypeJs,
+  "file-type-pdf": IconFileTypePdf,
+  "file-type-ppt": IconFileTypePpt,
+  "file-type-sql": IconFileTypeSql,
+  "file-type-svg": IconFileTypeSvg,
+  "file-type-ts": IconFileTypeTs,
+  "file-type-tsx": IconFileTypeTsx,
+  "file-type-txt": IconFileTypeTxt,
+  "file-type-xls": IconFileTypeXls,
+  "file-type-xml": IconFileTypeXml,
+  "file-type-zip": IconFileTypeZip,
+  binary: IconBinary,
+  book: IconBook,
+  braces: IconBraces,
+  certificate: IconCertificate,
+  database: IconDatabase,
+  disc: IconDisc,
+  key: IconKey,
+  markdown: IconMarkdown,
+  movie: IconMovie,
+  package: IconPackage,
+  photo: IconPhoto,
+  "terminal-2": IconTerminal2,
+};
+---
+
+<!-- Hidden source of icons that client scripts clone at runtime (see cloneIcon in lib/files.ts). -->
+<div class="hidden" aria-hidden="true" data-icons>
+  {Object.entries(fileIcons).map(([key, Icon]) => (
+    <div data-icon={key}>
+      <Icon />
+    </div>
+  ))}
+  <div data-icon="spinner">
+    <IconLoader2 class="animate-spin" />
+  </div>
+  <div data-icon="check">
+    <IconCheck class="text-emerald-500" />
+  </div>
+  <div data-icon="error">
+    <IconAlertCircle class="text-destructive" />
+  </div>
+</div>

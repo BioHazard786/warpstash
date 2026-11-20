@@ -1,0 +1,20 @@
+---
+import type { HTMLTag, Polymorphic } from "astro/types";
+
+import { cn } from "@/lib/utils";
+
+type Props<Tag extends HTMLTag = "div"> = Polymorphic<{ as: Tag }>;
+
+const { as: Tag = "div", class: className, ...props } = Astro.props;
+---
+
+<Tag
+  data-slot="button-group-text"
+  class={cn(
+    "bg-muted gap-2 rounded-lg border px-2.5 text-sm font-medium [&_svg:not([class*='size-'])]:size-4 flex items-center [&_svg]:pointer-events-none",
+    className,
+  )}
+  {...props}
+>
+  <slot />
+</Tag>
