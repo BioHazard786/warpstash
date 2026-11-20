@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { SpeedMeter, formatBytes, formatETA } from "./format"
+import { SpeedMeter, expiresIn, formatBytes, formatETA } from "./format"
 
 describe("format", () => {
   it("formats bytes without overflowing the unit table or choking on bad input", () => {
@@ -37,4 +37,11 @@ describe("format", () => {
     expect(m.sample(1_000_000, 4500)).toBe(0)
     expect(m.eta(1_000_000)).toBe(0) // rendered as "--"
   })
+})
+
+it("describes time left until expiry", () => {
+  const now = Date.parse("2026-01-01T00:00:00Z")
+  expect(expiresIn("2026-01-01T03:05:00Z", now)).toBe("3h 5m left")
+  expect(expiresIn("2025-12-31T23:00:00Z", now)).toBe("expired")
+  expect(expiresIn("", now)).toBe("")
 })

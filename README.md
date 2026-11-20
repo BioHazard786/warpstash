@@ -51,6 +51,10 @@ curl -OJ https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 
 # Download with a custom local filename
 curl -o downloaded_file.png https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+
+# Delete early: ask for JSON to get the delete_url, then DELETE it
+curl -H "Accept: application/json" -F "file=@notes.txt" https://warpstash.biohazard.qzz.io/
+curl -X DELETE "<delete_url from the JSON>"
 ```
 
 ### With `wget` *(for the curl contrarians)*

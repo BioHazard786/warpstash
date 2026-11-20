@@ -1,5 +1,6 @@
 import { CopyAction } from "@/components/copy-action"
 import { FileIcon, fileKind } from "@/components/file-icon"
+import { QrAction } from "@/components/qr-action"
 import {
   Attachment,
   AttachmentAction,
@@ -21,7 +22,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { deleteFile } from "@/lib/api"
-import { formatBytes } from "@/lib/format"
+import { expiresIn, formatBytes } from "@/lib/format"
 import { clearHistory, removeHistory, useHistory, type HistoryRecord } from "@/lib/history"
 import { IconDownload, IconHistory, IconTrash } from "@tabler/icons-react"
 import { useState } from "react"
@@ -37,7 +38,11 @@ function Row({ r }: { r: HistoryRecord }) {
       <AttachmentContent>
         <AttachmentTitle>{r.name}</AttachmentTitle>
         <AttachmentDescription className="font-mono tabular-nums">
-          {error ? `Delete failed · ${error}` : `${fileKind(r.name)} · ${formatBytes(r.size)}`}
+          {error
+            ? `Delete failed · ${error}`
+            : [fileKind(r.name), formatBytes(r.size), expiresIn(r.expiresAt)]
+                .filter(Boolean)
+                .join(" · ")}
         </AttachmentDescription>
       </AttachmentContent>
       <AttachmentActions>
@@ -49,6 +54,7 @@ function Row({ r }: { r: HistoryRecord }) {
           <IconDownload />
         </AttachmentAction>
         <CopyAction value={r.url} label={`Copy link for ${r.name}`} />
+        <QrAction value={r.url} label={`QR code for ${r.name}`} />
         <AttachmentAction
           aria-label={`Delete ${r.name} from the server`}
           title="Delete file now"

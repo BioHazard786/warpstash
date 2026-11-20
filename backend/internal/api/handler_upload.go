@@ -276,23 +276,6 @@ func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Fallback to headers and query parameters if still empty
-	if expiryStr == "" {
-		expiryStr = r.Header.Get("X-Expiry")
-	}
-	if expiryStr == "" {
-		expiryStr = r.URL.Query().Get("time")
-		if expiryStr == "" {
-			expiryStr = r.URL.Query().Get("expiry")
-		}
-	}
-	if burnStr == "" {
-		burnStr = r.Header.Get("X-Burn")
-	}
-	if burnStr == "" {
-		burnStr = r.URL.Query().Get("burn")
-	}
-
 	// Parse expiration duration and burn flag
 	dur, isBurn, err := h.cfg.ParseExpiry(expiryStr)
 	if err != nil {

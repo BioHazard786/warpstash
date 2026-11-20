@@ -139,7 +139,6 @@ func NewRouter(rc *RouterConfig) http.Handler {
 
 	// 8. Early File Deletion
 	r.Delete("/api/files/{id}", deleteHandler.HandleAPIDelete)
-	r.Get("/d/{token}", deleteHandler.HandleBrowserDelete)
 
 	// 9. Server Telemetry & Health Info
 	r.Get("/api/info", func(w http.ResponseWriter, r *http.Request) {

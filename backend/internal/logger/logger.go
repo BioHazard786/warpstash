@@ -62,8 +62,8 @@ func isFrontendAsset(path string) bool {
 	if path == "/favicon.ico" || path == "/favicon.svg" {
 		return true
 	}
-	// Omit common frontend static assets when NOT under /f/ (user storage) or /d/ or /api/
-	if !strings.HasPrefix(path, "/f/") && !strings.HasPrefix(path, "/d/") && !strings.HasPrefix(path, "/api/") {
+	// Omit common frontend static assets when NOT under /f/ (user storage) or /api/
+	if !strings.HasPrefix(path, "/f/") && !strings.HasPrefix(path, "/api/") {
 		ext := strings.ToLower(filepath.Ext(path))
 		switch ext {
 		case ".css", ".js", ".svg", ".ico", ".woff", ".woff2", ".ttf", ".webp", ".png", ".jpg", ".jpeg", ".map":

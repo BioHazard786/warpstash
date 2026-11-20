@@ -666,50 +666,6 @@ func TestBurnStaticFSRendering(t *testing.T) {
 	}
 }
 
-func TestBrowserDeletePrefetchRejection(t *testing.T) {
-	router, db, _, _ := setupTestServer(t, "")
-
-	// 1. Upload a file
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	part, _ := writer.CreateFormFile("file", "important.txt")
-	_, _ = part.Write([]byte("critical data that should not be deleted by prefetch"))
-	_ = writer.Close()
-
-	uploadReq := httptest.NewRequest(http.MethodPost, "/api/upload", &body)
-	uploadReq.Header.Set("Content-Type", writer.FormDataContentType())
-	uploadRec := httptest.NewRecorder()
-	router.ServeHTTP(uploadRec, uploadReq)
-
-	var resp UploadResponse
-	_ = json.Unmarshal(uploadRec.Body.Bytes(), &resp)
-
-	// 2. Prefetch request MUST be rejected
-	prefetchReq := httptest.NewRequest(http.MethodGet, "/d/"+resp.DeleteToken, nil)
-	prefetchReq.Header.Set("Sec-Purpose", "prefetch")
-	prefetchRec := httptest.NewRecorder()
-	router.ServeHTTP(prefetchRec, prefetchReq)
-
-	if prefetchRec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request for Sec-Purpose: prefetch, got %d", prefetchRec.Code)
-	}
-
-	// 3. Verify file is STILL ACTIVE in database
-	rec, err := db.GetFile(uploadReq.Context(), resp.ID)
-	if err != nil || rec == nil {
-		t.Fatalf("file should still exist after prefetch rejection: %v", err)
-	}
-
-	// 4. Normal browser delete succeeds
-	delReq := httptest.NewRequest(http.MethodGet, "/d/"+resp.DeleteToken, nil)
-	delRec := httptest.NewRecorder()
-	router.ServeHTTP(delRec, delReq)
-
-	if delRec.Code != http.StatusOK {
-		t.Fatalf("expected 200 OK for human browser delete, got %d", delRec.Code)
-	}
-}
-
 func TestCatboxTrailingFieldsOrdering(t *testing.T) {
 	router, db, _, _ := setupTestServer(t, "")
 

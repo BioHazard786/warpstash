@@ -18,14 +18,19 @@ import { useState } from "react"
 /** The Go server only sends browsers here for burn files (the interstitial) and burned/missing ones (410/404);
  *  regular files are served raw. */
 export const Route = createFileRoute("/f/$file")({
-  loader: ({ params }) => fetchMeta(params.file),
+  loader: async ({ params }) => {
+    const meta = await fetchMeta(params.file)
+    // a regular file (only reachable from the dev server or client-side navigation): show the file itself
+    if (typeof meta !== "number" && !meta.burn) location.replace(`/f/${params.file}?inline=1`)
+    return meta
+  },
   component: FilePage,
 })
 
 function FilePage() {
   const meta = Route.useLoaderData()
   if (typeof meta === "number") return <StatusView code={meta} />
-  if (!meta.burn) return <StatusView code={404} /> // only reachable via client-side navigation
+  if (!meta.burn) return null // redirecting
   return <BurnCard name={meta.name} size={meta.size} />
 }
 

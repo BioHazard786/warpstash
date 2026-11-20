@@ -11,7 +11,7 @@ import { fetchInfo } from "@/lib/api"
 import { useUpload } from "@/store/upload"
 import { IconCloudUpload, IconFlame } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export const Route = createFileRoute("/")({ loader: fetchInfo, component: UploadPage })
 
@@ -46,6 +46,18 @@ function UploadPage() {
     })
     if (err) toast.add({ type: "error", title: "Some files weren't added", description: err })
   }
+
+  // Paste a screenshot (or copied files) anywhere on the page to queue it.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = [...(e.clipboardData?.files ?? [])]
+      if (!files.length) return // plain text, e.g. into the token field
+      e.preventDefault()
+      onFiles(files)
+    }
+    addEventListener("paste", onPaste)
+    return () => removeEventListener("paste", onPaste)
+  })
 
   const busy = items.some((i) => i.status === "uploading")
   const pending = items.filter((i) => i.status === "queued" || i.status === "error").length
@@ -101,6 +113,7 @@ function UploadPage() {
           hints={[
             Number.isFinite(maxFiles) ? `up to ${maxFiles} files` : "many at once",
             `${info.max_file_size_human} each`,
+            "or paste",
           ]}
         />
 

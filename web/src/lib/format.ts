@@ -45,3 +45,10 @@ export class SpeedMeter {
     return this.speed > 1 ? remaining / this.speed : 0
   }
 }
+
+/** "3h 5m left" for an ISO time, "expired" once past, "" when the time is missing or invalid. */
+export function expiresIn(iso: string, now = Date.now()): string {
+  const s = (Date.parse(iso) - now) / 1000
+  if (Number.isNaN(s)) return ""
+  return s > 0 ? `${formatETA(s)} left` : "expired"
+}
