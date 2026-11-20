@@ -1,23 +1,29 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS = -s -w -X warpstash/internal/config.Version=$(VERSION)
 
-.PHONY: all build-frontend build-backend build test run clean docker-build docker-up
+.PHONY: all build-frontend build-backend build test run dev-web clean docker-build docker-up
 
 all: build
 
+# Vite writes straight into backend/web/dist, which the Go binary embeds.
 build-frontend:
-	cd web && pnpm install && pnpm build
+	cd web && bun install --frozen-lockfile && bun run build
 
 build-backend:
-	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o warpstash ./cmd/warpstash
+	cd backend && CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o ../warpstash ./cmd/warpstash
 
 build: build-frontend build-backend
 
 test:
-	go test -v ./...
+	cd backend && go test ./...
+	cd web && bun run test
 
 run: build
 	./warpstash
+
+# Vite dev server on :5173, proxying /api, /f/ and /upload to a backend on :8080.
+dev-web:
+	cd web && bun run dev
 
 docker-build:
 	docker compose build
@@ -26,4 +32,5 @@ docker-up:
 	docker compose up -d
 
 clean:
-	rm -rf warpstash web/dist data/
+	rm -rf warpstash data/
+	find backend/web/dist -mindepth 1 ! -name .gitkeep -delete

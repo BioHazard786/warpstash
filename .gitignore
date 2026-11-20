@@ -10,6 +10,7 @@
 # Go Binaries & Build Output
 /warpstash
 /warpstash-*
+/backend/warpstash
 *.test
 *.out
 coverage.txt
@@ -22,11 +23,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Astro Build Artifacts & Cache
-.astro/
-web/.astro/
-dist/
-web/dist/
+# Build output (Vite writes into backend/web/dist, which Go embeds)
+/dist/
+backend/web/dist/*
+!backend/web/dist/.gitkeep
+*.tsbuildinfo
 
 # Application Data & SQLite Database
 /data/

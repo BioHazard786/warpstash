@@ -79,22 +79,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: 'backend/go.mod'
 
       - name: Build frontend static bundle
         run: |
           cd web
-          npm install
-          npm run build
-          cd ..
+          bun install --frozen-lockfile
+          bun run build
 
       - name: Build and package release binaries
         env:
@@ -113,10 +110,10 @@ jobs:
             output_dir="dist/${target_os}_${target_arch}"
             mkdir -p "$output_dir"
             echo "Building for ${target_os}/${target_arch}..."
-            CGO_ENABLED=0 GOOS=$target_os GOARCH=$target_arch go build \
+            (cd backend && CGO_ENABLED=0 GOOS=$target_os GOARCH=$target_arch go build \
               -ldflags="-s -w -X warpstash/internal/config.Version=${VERSION}" \
-              -o "${output_dir}/${target_bin}" \
-              ./cmd/warpstash
+              -o "../${output_dir}/${target_bin}" \
+              ./cmd/warpstash)
 
             archive_name="warpstash_${VERSION}_${target_os}_${target_arch}"
             if [ "$target_os" = "windows" ]; then

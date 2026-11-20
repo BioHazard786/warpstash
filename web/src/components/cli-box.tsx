@@ -1,0 +1,31 @@
+import {
+  CodeBlock,
+  CodeBlockActions,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+  CodeBlockLine,
+} from "@/components/ui/code-block"
+
+/** One-line terminal command with a copy button. */
+export function CliBox({
+  command,
+  prompt = true,
+}: {
+  command: string
+  /** show the leading `$`; off for things that aren't shell commands, like a link */
+  prompt?: boolean
+}) {
+  return (
+    <CodeBlock size="sm">
+      <CodeBlockContent>
+        <CodeBlockLine>
+          {prompt && <span className="text-muted-foreground select-none">$ </span>}
+          {command}
+        </CodeBlockLine>
+      </CodeBlockContent>
+      <CodeBlockActions>
+        <CodeBlockCopyButton value={command} />
+      </CodeBlockActions>
+    </CodeBlock>
+  )
+}

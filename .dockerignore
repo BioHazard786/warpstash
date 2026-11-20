@@ -11,14 +11,14 @@ data/
 # Binaries and build outputs
 warpstash
 warpstash-*
-web/dist/
+backend/web/dist/
 dist/
+.env
+.env.*
 
 # Dependencies and caches
 node_modules/
 web/node_modules/
-.astro/
-web/.astro/
 
 # Logs & temp files
 *.log

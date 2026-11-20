@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/styles/global.css",
+    "css": "src/index.css",
     "baseColor": "zinc",
     "cssVariables": true,
     "prefix": ""
@@ -21,7 +21,5 @@
   },
   "menuColor": "default",
   "menuAccent": "subtle",
-  "registries": {
-    "@fulldev": "https://ui.full.dev/r/styles/{style}/{name}.json"
-  }
+  "registries": {}
 }

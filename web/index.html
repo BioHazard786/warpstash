@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Warpstash" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script src="/theme.js"></script>
+    <title>Warpstash — Ephemeral File Storage</title>
+    <meta
+      name="description"
+      content="Self-hostable temporary file storage with auto-expiration and burn-after-reading. Works with curl, wget, and your browser."
+    />
+    <meta property="og:title" content="Warpstash — Ephemeral File Storage" />
+    <meta
+      property="og:description"
+      content="Temporary file hosting with automatic expiry or burn-after-reading."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- The Go server fills this with page data (burn file metadata or an error status); keep the opening tag in sync with pageDataOpen in backend/internal/api/spa.go. -->
+    <script id="page-data" type="application/json">
+      null
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

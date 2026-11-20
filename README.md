@@ -113,27 +113,21 @@ warp-get https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 Using the included [docker-compose.yml](docker-compose.yml):
 
 #### Option 1: Quick Start (Official Pre-Built Image)
-Runs the official hosted image with default settings (1GB upload limit, 10 files per batch):
+Runs the official hosted image. Limits come from `.env` at runtime (the web UI reads them from `/api/info`), so the pre-built image works with any limits:
 
 ```bash
 # 1. Grab docker-compose.prod.yml and start
 curl -fSL https://raw.githubusercontent.com/BioHazard786/warpstash/main/docker-compose.prod.yml -o docker-compose.yml
+# Optional: set WARPSTASH_MAX_FILE_SIZE_MB, WARPSTASH_MAX_FILES, ... in .env next to it
 docker compose up -d
 ```
 
-#### Option 2: Custom Limits (Build from Source)
-If you want custom limits baked into the static frontend (e.g. 50MB limit, 5 files):
+#### Option 2: Build from Source
 
 ```bash
-# 1. Clone & enter
 git clone https://github.com/BioHazard786/warpstash.git
 cd warpstash
-
-# 2. Set your custom limits in .env
-cp .env.example .env
-# Edit WARPSTASH_MAX_FILE_SIZE_MB and WARPSTASH_MAX_FILES in .env
-
-# 3. Build with your custom args and start
+cp .env.example .env   # adjust as you like
 docker compose up -d --build
 ```
 
@@ -142,7 +136,7 @@ docker compose up -d --build
 If you prefer running binaries directly like an old-school sysadmin:
 
 ```bash
-# 1. Build everything (frontend + standalone Go binary)
+# 1. Build everything (needs Bun and Go; the SPA is embedded into the binary)
 make build
 
 # 2. Fire it up

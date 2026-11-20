@@ -1,32 +1,19 @@
-# Stage 1: Build Frontend (Astro 5 + Vite)
+# syntax=docker/dockerfile:1
 # ==========================================
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
-WORKDIR /app/web
-
-# Copy package.json and install dependencies
-COPY web/package.json ./
-RUN npm install
-
-# Copy source and root environment files
-WORKDIR /app
-COPY web/ ./web/
-COPY .env* ./
-
-# Build arguments with fallback defaults
-ARG WARPSTASH_MAX_FILE_SIZE_MB=1024
-ARG WARPSTASH_MAX_FILES=10
-ENV WARPSTASH_MAX_FILE_SIZE_MB=$WARPSTASH_MAX_FILE_SIZE_MB
-ENV WARPSTASH_MAX_FILES=$WARPSTASH_MAX_FILES
-
-# Build frontend static bundle
-WORKDIR /app/web
-RUN npm run build
+# Stage 1: Build the SPA (Vite + React, Bun)
+# ==========================================
+FROM --platform=$BUILDPLATFORM oven/bun:1.4-alpine AS frontend-builder
+WORKDIR /src/web
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY web/ ./
+RUN bun x vite build --outDir /out --emptyOutDir
 
 # ==========================================
-# Stage 2: Build Backend (Go 1.26 Static Binary)
+# Stage 2: Build Backend (Go static binary)
 # ==========================================
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
-WORKDIR /app
+WORKDIR /src/backend
 
 # Install CA certificates and timezone database
 RUN apk --no-cache add ca-certificates tzdata
@@ -36,19 +23,17 @@ RUN adduser -D -u 10001 -g "" -s /sbin/nologin warpstash && \
     mkdir -p /data/storage && \
     chown -R 10001:10001 /data
 
-# Download Go module dependencies
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
-# Copy source code and compiled static frontend from Stage 1
-COPY . .
-COPY --from=frontend-builder /app/web/dist ./web/dist
+COPY backend/ ./
+COPY --from=frontend-builder /out ./web/dist
 
 # Build fully static binary (zero CGO) with embedded version and native cross-compilation
 ARG TARGETOS
 ARG TARGETARCH
 ARG WARPSTASH_VERSION=v1.0.0
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-s -w -X warpstash/internal/config.Version=${WARPSTASH_VERSION}" -o /app/warpstash ./cmd/warpstash
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w -X warpstash/internal/config.Version=${WARPSTASH_VERSION}" -o /app/warpstash ./cmd/warpstash
 
 # ==========================================
 # Stage 3: Ultra-Minimal Production Runner
