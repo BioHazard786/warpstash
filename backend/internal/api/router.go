@@ -44,7 +44,7 @@ func isRegularFile(fsys fs.FS, name string) bool {
 	return !info.IsDir()
 }
 
-// serveErrorPage serves an error as JSON for API callers, else as the SPA's error view.
+// serveErrorPage serves an error as JSON for API callers, else the SPA (which renders the error view).
 func serveErrorPage(w http.ResponseWriter, r *http.Request, staticFS fs.FS, statusCode int) {
 	if strings.HasPrefix(r.URL.Path, "/api/") || strings.Contains(r.Header.Get("Accept"), "application/json") {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -54,9 +54,26 @@ func serveErrorPage(w http.ResponseWriter, r *http.Request, staticFS fs.FS, stat
 		})
 		return
 	}
-	if !renderSPA(w, staticFS, statusCode, map[string]int{"status": statusCode}) {
+	if !serveIndex(w, staticFS, statusCode) {
 		http.Error(w, http.StatusText(statusCode), statusCode)
 	}
+}
+
+// serveIndex writes the SPA's index.html with the given status; the client router picks the view
+// from the URL. Returns false when no frontend build is embedded.
+func serveIndex(w http.ResponseWriter, staticFS fs.FS, status int) bool {
+	if staticFS == nil {
+		return false
+	}
+	page, err := fs.ReadFile(staticFS, "index.html")
+	if err != nil {
+		return false
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(status)
+	_, _ = w.Write(page)
+	return true
 }
 
 // NewRouter builds and binds the complete Chi HTTP handler tree.
@@ -118,6 +135,7 @@ func NewRouter(rc *RouterConfig) http.Handler {
 
 	// 7. File Serving (Public)
 	r.Get("/f/{file}", serveHandler.HandleServe)
+	r.Get("/api/files/{id}", serveHandler.HandleMeta)
 
 	// 8. Early File Deletion
 	r.Delete("/api/files/{id}", deleteHandler.HandleAPIDelete)
@@ -171,7 +189,7 @@ func NewRouter(rc *RouterConfig) http.Handler {
 		r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 			path := strings.TrimPrefix(r.URL.Path, "/")
 			if path == "" {
-				if !renderSPA(w, rc.StaticFS, http.StatusOK, nil) {
+				if !serveIndex(w, rc.StaticFS, http.StatusOK) {
 					http.Error(w, "frontend not built", http.StatusNotFound)
 				}
 				return

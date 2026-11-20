@@ -493,9 +493,7 @@ func TestServerInfoEndpoint(t *testing.T) {
 
 func TestStaticFSErrorPages(t *testing.T) {
 	mockFS := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: []byte(`<html><body>Home<script id="page-data" type="application/json">
-      null
-    </script></body></html>`)},
+		"index.html": &fstest.MapFile{Data: []byte(`<html><body>Home</body></html>`)},
 	}
 
 	tmpDir := t.TempDir()
@@ -544,15 +542,15 @@ func TestStaticFSErrorPages(t *testing.T) {
 		t.Errorf("expected Home in body, got: %s", recHome.Body.String())
 	}
 
-	// 2. Unknown path returns 404 with the SPA and its status injected
+	// 2. Unknown path returns 404 with the SPA (which renders its own 404 view)
 	req404 := httptest.NewRequest(http.MethodGet, "/asdasd", nil)
 	rec404 := httptest.NewRecorder()
 	router.ServeHTTP(rec404, req404)
 	if rec404.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for /asdasd, got %d", rec404.Code)
 	}
-	if !strings.Contains(rec404.Body.String(), `{"status":404}`) {
-		t.Errorf("expected injected 404 status for /asdasd, got: %s", rec404.Body.String())
+	if !strings.Contains(rec404.Body.String(), "Home") {
+		t.Errorf("expected the SPA for /asdasd, got: %s", rec404.Body.String())
 	}
 
 	// 5. API route with non-existent path should return JSON 404
@@ -569,9 +567,7 @@ func TestStaticFSErrorPages(t *testing.T) {
 
 func TestBurnStaticFSRendering(t *testing.T) {
 	mockFS := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: []byte(`<html><body>Home<script id="page-data" type="application/json">
-      null
-    </script></body></html>`)},
+		"index.html": &fstest.MapFile{Data: []byte(`<html><body>Home</body></html>`)},
 	}
 
 	tmpDir := t.TempDir()
@@ -624,18 +620,22 @@ func TestBurnStaticFSRendering(t *testing.T) {
 	var resp UploadResponse
 	_ = json.Unmarshal(uploadRec.Body.Bytes(), &resp)
 
-	// 2. Browser request gets the SPA with the burn metadata injected verbatim ("$1" must survive)
+	// 2. Browser request gets the SPA; the SPA reads the details from the metadata API ("$1" must survive)
 	browserReq := httptest.NewRequest(http.MethodGet, "/f/"+resp.ID+".pdf", nil)
 	browserReq.Header.Set("Accept", "text/html")
 	browserRec := httptest.NewRecorder()
 	router.ServeHTTP(browserRec, browserReq)
-
-	if browserRec.Code != http.StatusOK {
-		t.Fatalf("expected 200 OK for burn interstitial, got %d", browserRec.Code)
+	if browserRec.Code != http.StatusOK || !strings.Contains(browserRec.Body.String(), "Home") {
+		t.Fatalf("expected 200 with the SPA for the burn interstitial, got %d: %s", browserRec.Code, browserRec.Body.String())
 	}
-	want := fmt.Sprintf(`{"burn":{"id":"%s","name":"secret$1_report.pdf","size":15}}`, resp.ID)
-	if !strings.Contains(browserRec.Body.String(), want) {
-		t.Errorf("expected %s injected into page-data, got: %s", want, browserRec.Body.String())
+
+	metaReq := httptest.NewRequest(http.MethodGet, "/api/files/"+resp.ID+".pdf", nil)
+	metaRec := httptest.NewRecorder()
+	router.ServeHTTP(metaRec, metaReq)
+	var meta map[string]any
+	_ = json.Unmarshal(metaRec.Body.Bytes(), &meta)
+	if metaRec.Code != http.StatusOK || meta["name"] != "secret$1_report.pdf" || meta["burn"] != true || meta["size"] != float64(15) {
+		t.Fatalf("unexpected metadata %d: %s", metaRec.Code, metaRec.Body.String())
 	}
 
 	// 3. Confirm download
@@ -646,7 +646,7 @@ func TestBurnStaticFSRendering(t *testing.T) {
 		t.Fatalf("expected 200 OK for raw download, got %d", rawRec.Code)
 	}
 
-	// 4. Opening the link again shows the SPA's 410 view (the file is still in the DB until the shredder runs)
+	// 4. Afterwards the link and the metadata both report 410 (the record stays until the shredder runs)
 	againReq := httptest.NewRequest(http.MethodGet, "/f/"+resp.ID+".pdf?raw=1", nil)
 	againReq.Header.Set("Accept", "text/html")
 	againRec := httptest.NewRecorder()
@@ -654,8 +654,15 @@ func TestBurnStaticFSRendering(t *testing.T) {
 	if againRec.Code != http.StatusGone {
 		t.Errorf("expected 410 for a burned file, got %d", againRec.Code)
 	}
-	if !strings.Contains(againRec.Body.String(), `{"status":410}`) {
-		t.Errorf("expected injected 410 status, got: %s", againRec.Body.String())
+	goneRec := httptest.NewRecorder()
+	router.ServeHTTP(goneRec, httptest.NewRequest(http.MethodGet, "/api/files/"+resp.ID, nil))
+	if goneRec.Code != http.StatusGone {
+		t.Errorf("expected 410 from the metadata API for a burned file, got %d", goneRec.Code)
+	}
+	missRec := httptest.NewRecorder()
+	router.ServeHTTP(missRec, httptest.NewRequest(http.MethodGet, "/api/files/nope", nil))
+	if missRec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 from the metadata API for an unknown id, got %d", missRec.Code)
 	}
 }
 

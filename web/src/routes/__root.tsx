@@ -2,7 +2,6 @@ import { Header } from "@/components/header"
 import { StatusView } from "@/components/status-view"
 import { Marker, MarkerContent } from "@/components/ui/marker"
 import { Toaster } from "@/components/ui/toast"
-import { pageData } from "@/lib/page-data"
 import { Outlet, createRootRoute } from "@tanstack/react-router"
 
 export const Route = createRootRoute({
@@ -26,7 +25,6 @@ export const Route = createRootRoute({
       </div>
     </Toaster>
   ),
-  // the server sends unknown paths here with status 404, and panics with 500
-  notFoundComponent: () => <StatusView code={pageData.status === 500 ? 500 : 404} />,
+  notFoundComponent: () => <StatusView code={404} />,
   errorComponent: ({ error }) => <StatusView code={500} description={(error as Error).message} />,
 })

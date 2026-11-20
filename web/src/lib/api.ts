@@ -19,6 +19,19 @@ export type Uploaded = {
   is_burn_on_read: boolean
 }
 
+/** Public details of a file, from GET /api/files/{id}. Reading them never burns the file. */
+export type FileMeta = { id: string; name: string; size: number; burn: boolean; expires_at: string }
+
+/** The file's details, or the HTTP status when it's gone (410) or unknown (404). */
+export async function fetchMeta(file: string): Promise<FileMeta | number> {
+  const res = await fetch(`/api/files/${encodeURIComponent(file)}`, {
+    headers: { Accept: "application/json" },
+  })
+  if (res.status === 404 || res.status === 410) return res.status
+  if (!res.ok) throw new Error(await errorText(res))
+  return res.json()
+}
+
 export async function fetchInfo(): Promise<Info> {
   const res = await fetch("/api/info", { headers: { Accept: "application/json" } })
   if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`)

@@ -9,19 +9,24 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { formatBytes } from "@/lib/format"
-import { pageData } from "@/lib/page-data"
+import { fetchMeta } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { IconAlertTriangle, IconFlame } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 
-/** The Go server only sends browsers here for burn files (the interstitial) and burned/missing ones (410/404). */
-export const Route = createFileRoute("/f/$file")({ component: FilePage })
+/** The Go server only sends browsers here for burn files (the interstitial) and burned/missing ones (410/404);
+ *  regular files are served raw. */
+export const Route = createFileRoute("/f/$file")({
+  loader: ({ params }) => fetchMeta(params.file),
+  component: FilePage,
+})
 
 function FilePage() {
-  const { burn, status } = pageData
-  if (burn) return <BurnCard name={burn.name} size={burn.size} />
-  return <StatusView code={status ?? 404} />
+  const meta = Route.useLoaderData()
+  if (typeof meta === "number") return <StatusView code={meta} />
+  if (!meta.burn) return <StatusView code={404} /> // only reachable via client-side navigation
+  return <BurnCard name={meta.name} size={meta.size} />
 }
 
 function BurnCard({ name, size }: { name: string; size: number }) {

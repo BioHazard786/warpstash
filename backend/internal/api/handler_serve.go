@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
@@ -81,6 +82,35 @@ func (h *ServeHandler) HandleServe(w http.ResponseWriter, r *http.Request) {
 
 	// Handle Standard Temporary files
 	h.handleStandardServe(w, r, file)
+}
+
+// HandleMeta serves GET /api/files/{id}: public details the SPA shows on the burn page. It never claims a file.
+func (h *ServeHandler) HandleMeta(w http.ResponseWriter, r *http.Request) {
+	param := chi.URLParam(r, "id")
+	id := strings.TrimSuffix(param, filepath.Ext(param)) // accept "abc.pdf" like /f/ does
+	file, err := h.db.GetFile(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		status := http.StatusNotFound
+		if burned, _ := h.db.IsBurnedFile(r.Context(), id); burned {
+			status = http.StatusGone
+		}
+		serveErrorPage(w, r, nil, status)
+		return
+	}
+	if err != nil {
+		h.logger.Error("error querying file metadata", "id", id, "error", err)
+		serveErrorPage(w, r, nil, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id":         file.ID,
+		"name":       file.OriginalName,
+		"size":       file.SizeBytes,
+		"burn":       file.IsBurnOnRead,
+		"expires_at": file.ExpiresAt,
+	})
 }
 
 // handleBurnServe manages the bot-shield interstitial and atomic single-use streaming.
@@ -191,8 +221,7 @@ func (h *ServeHandler) handleStandardServe(w http.ResponseWriter, r *http.Reques
 
 // renderBurnConfirmation shows the SPA's burn interstitial, so chat crawlers that follow the link don't destroy it.
 func (h *ServeHandler) renderBurnConfirmation(w http.ResponseWriter, file *database.FileRecord) {
-	burn := map[string]any{"burn": map[string]any{"id": file.ID, "name": file.OriginalName, "size": file.SizeBytes}}
-	if renderSPA(w, h.staticFS, http.StatusOK, burn) {
+	if serveIndex(w, h.staticFS, http.StatusOK) { // the SPA fetches the details from /api/files/{id}
 		return
 	}
 
@@ -302,7 +331,7 @@ func (h *ServeHandler) renderBurnDestroyed(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if renderSPA(w, h.staticFS, http.StatusGone, map[string]int{"status": http.StatusGone}) {
+	if serveIndex(w, h.staticFS, http.StatusGone) {
 		return
 	}
 
