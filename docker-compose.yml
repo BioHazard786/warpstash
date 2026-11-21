@@ -1,10 +1,6 @@
 services:
   warpstash:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        WARPSTASH_VERSION: ${WARPSTASH_VERSION:-v1.0.0}
+    image: ghcr.io/biohazard786/warpstash:latest
     container_name: warpstash
     restart: unless-stopped
     ports:

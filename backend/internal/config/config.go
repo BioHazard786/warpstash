@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +41,8 @@ type Config struct {
 	MaxTotalStorageGB      int64         `env:"WARPSTASH_MAX_TOTAL_STORAGE_GB" envDefault:"0"`
 	AuthToken              string        `env:"WARPSTASH_AUTH_TOKEN"`
 	DefaultExpiry          string        `env:"WARPSTASH_DEFAULT_EXPIRY" envDefault:"24h"`
-	AllowedExpiries        []string      `env:"WARPSTASH_ALLOWED_EXPIRIES" envDefault:"1h,12h,24h,72h,burn" envSeparator:","`
+	AllowedExpiries        []string      `env:"WARPSTASH_ALLOWED_EXPIRIES" envDefault:"1h,24h,7d,30d,burn" envSeparator:","`
+	MaxExpiry              string        `env:"WARPSTASH_MAX_EXPIRY" envDefault:"30d"`
 	GCInterval             time.Duration `env:"WARPSTASH_GC_INTERVAL" envDefault:"60s"`
 	RateLimitReqPerSec     float64       `env:"WARPSTASH_RATE_LIMIT_RPS" envDefault:"10.0"`
 	RateLimitBurst         int           `env:"WARPSTASH_RATE_LIMIT_BURST" envDefault:"30"`
@@ -132,42 +135,86 @@ func (c *Config) MaxTotalStorageBytes() int64 {
 	return c.MaxTotalStorageGB * 1024 * 1024 * 1024
 }
 
-// ParseExpiry parses an expiry string (e.g., "1h", "12h", "24h", "72h", "burn")
-// returning the duration and whether it is a burn-after-reading file.
+const (
+	minExpiry     = time.Minute
+	burnFallback  = 72 * time.Hour // how long a burn file waits to be downloaded before it expires anyway
+	maxDurationYr = 10             // sanity bound so "999999w" can't overflow time.Duration
+)
+
+var durationToken = regexp.MustCompile(`^(\d+)([smhdw])`)
+
+var durationUnit = map[string]time.Duration{
+	"s": time.Second, "m": time.Minute, "h": time.Hour, "d": 24 * time.Hour, "w": 7 * 24 * time.Hour,
+}
+
+// ParseDuration is time.ParseDuration plus days and weeks: "90m", "7d", "2w", "1d12h".
+func ParseDuration(s string) (time.Duration, error) {
+	rest := strings.ToLower(strings.TrimSpace(s))
+	if rest == "" {
+		return 0, fmt.Errorf("empty duration")
+	}
+	limit := maxDurationYr * 365 * 24 * time.Hour
+	var total time.Duration
+	for rest != "" {
+		m := durationToken.FindStringSubmatch(rest)
+		if m == nil {
+			return 0, fmt.Errorf("invalid duration %q (use e.g. 90m, 12h, 7d, 2w)", s)
+		}
+		n, err := strconv.ParseInt(m[1], 10, 64)
+		unit := durationUnit[m[2]]
+		if err != nil || n > int64(limit/unit) {
+			return 0, fmt.Errorf("duration %q is too long", s)
+		}
+		total += time.Duration(n) * unit
+		rest = rest[len(m[0]):]
+	}
+	if total > limit {
+		return 0, fmt.Errorf("duration %q is too long", s)
+	}
+	return total, nil
+}
+
+// MaxExpiryDuration is the longest a file may live; 0 means unlimited ("0" in the env var).
+// An unparseable value falls back to 30 days rather than silently lifting the cap.
+func (c *Config) MaxExpiryDuration() time.Duration {
+	if v := strings.TrimSpace(c.MaxExpiry); v == "" || v == "0" {
+		return 0
+	}
+	d, err := ParseDuration(c.MaxExpiry)
+	if err != nil {
+		return 30 * 24 * time.Hour
+	}
+	return d
+}
+
+// ParseExpiry parses an expiry such as "90m", "12h", "7d", "2w" or "burn", returning the lifetime
+// and whether the file is burn-after-reading. Any duration between a minute and MaxExpiry is
+// accepted; AllowedExpiries only lists the presets the web UI and the Telegram bot offer.
 func (c *Config) ParseExpiry(expiryStr string) (time.Duration, bool, error) {
 	clean := strings.ToLower(strings.TrimSpace(expiryStr))
 	if clean == "" {
 		clean = strings.ToLower(strings.TrimSpace(c.DefaultExpiry))
 	}
+	maxDur := c.MaxExpiryDuration()
 
 	if clean == "burn" || clean == "1x" || clean == "once" {
-		// Burn files default to a fallback max lifetime of 72 hours if never downloaded
-		return 72 * time.Hour, true, nil
+		dur := burnFallback
+		if maxDur > 0 && dur > maxDur {
+			dur = maxDur
+		}
+		return dur, true, nil
 	}
 
-	// Verify against allowed list if configured
-	if len(c.AllowedExpiries) > 0 {
-		allowed := false
-		for _, exp := range c.AllowedExpiries {
-			if strings.EqualFold(exp, clean) {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			return 0, false, fmt.Errorf("expiry '%s' is not in allowed list: %v", expiryStr, c.AllowedExpiries)
-		}
-	}
-
-	dur, err := time.ParseDuration(clean)
+	dur, err := ParseDuration(clean)
 	if err != nil {
-		return 0, false, fmt.Errorf("invalid expiry duration: %w", err)
+		return 0, false, err
 	}
-
-	if dur <= 0 {
-		return 0, false, fmt.Errorf("expiry duration must be positive")
+	if dur < minExpiry {
+		return 0, false, fmt.Errorf("expiry must be at least %s", minExpiry)
 	}
-
+	if maxDur > 0 && dur > maxDur {
+		return 0, false, fmt.Errorf("expiry '%s' exceeds the maximum of %s", expiryStr, c.MaxExpiry)
+	}
 	return dur, false, nil
 }
 

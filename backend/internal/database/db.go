@@ -34,6 +34,7 @@ type FileRecord struct {
 	UploaderIP    string     `json:"uploader_ip"`
 	IsBurnOnRead  bool       `json:"is_burn_on_read"`
 	DownloadCount int64      `json:"download_count"`
+	PasswordHash  string     `json:"-"` // bcrypt; empty when the file isn't password protected
 	CreatedAt     time.Time  `json:"created_at"`
 	ExpiresAt     time.Time  `json:"expires_at"`
 	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
@@ -100,8 +101,20 @@ func (db *DB) migrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_files_hash ON files (sha256_hash);
 	CREATE INDEX IF NOT EXISTS idx_files_storage_cleanup ON files (storage_path) WHERE deleted_at IS NOT NULL AND storage_path != '';
 	`
-	_, err := db.ExecContext(ctx, schema)
-	return err
+	if _, err := db.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+
+	// Databases created before password protection lack the column.
+	var has int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('files') WHERE name = 'password_hash'`).Scan(&has); err != nil {
+		return err
+	}
+	if has == 0 {
+		_, err := db.ExecContext(ctx, `ALTER TABLE files ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''`)
+		return err
+	}
+	return nil
 }
 
 // InsertFile stores file metadata in the database.
@@ -110,8 +123,8 @@ func (db *DB) InsertFile(ctx context.Context, f *FileRecord) error {
 	INSERT INTO files (
 		id, original_name, extension, size_bytes, mime_type, sha256_hash,
 		storage_path, delete_token, uploader_ip, is_burn_on_read, download_count,
-		created_at, expires_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		created_at, expires_at, password_hash
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := db.ExecContext(ctx, query,
 		f.ID,
@@ -127,6 +140,7 @@ func (db *DB) InsertFile(ctx context.Context, f *FileRecord) error {
 		f.DownloadCount,
 		f.CreatedAt.UTC(),
 		f.ExpiresAt.UTC(),
+		f.PasswordHash,
 	)
 	if err == nil {
 		db.invalidateUsageCache()
@@ -139,7 +153,7 @@ func (db *DB) GetFile(ctx context.Context, id string) (*FileRecord, error) {
 	query := `
 	SELECT id, original_name, extension, size_bytes, mime_type, sha256_hash,
 	       storage_path, delete_token, uploader_ip, is_burn_on_read, download_count,
-	       created_at, expires_at, deleted_at
+	       created_at, expires_at, deleted_at, password_hash
 	FROM files
 	WHERE id = ? AND deleted_at IS NULL
 	`
@@ -152,7 +166,7 @@ func (db *DB) GetFileByDeleteToken(ctx context.Context, token string) (*FileReco
 	query := `
 	SELECT id, original_name, extension, size_bytes, mime_type, sha256_hash,
 	       storage_path, delete_token, uploader_ip, is_burn_on_read, download_count,
-	       created_at, expires_at, deleted_at
+	       created_at, expires_at, deleted_at, password_hash
 	FROM files
 	WHERE delete_token = ? AND deleted_at IS NULL
 	`
@@ -175,7 +189,7 @@ func (db *DB) AtomicClaimBurnFile(ctx context.Context, id string) (*FileRecord, 
 	  AND deleted_at IS NULL
 	RETURNING id, original_name, extension, size_bytes, mime_type, sha256_hash,
 	          storage_path, delete_token, uploader_ip, is_burn_on_read, download_count,
-	          created_at, expires_at, deleted_at
+	          created_at, expires_at, deleted_at, password_hash
 	`
 	row := db.QueryRowContext(ctx, query, id)
 	return scanFileRecord(row)
@@ -210,7 +224,7 @@ func (db *DB) SoftDeleteByToken(ctx context.Context, token string) (*FileRecord,
 	WHERE delete_token = ? AND deleted_at IS NULL
 	RETURNING id, original_name, extension, size_bytes, mime_type, sha256_hash,
 	          storage_path, delete_token, uploader_ip, is_burn_on_read, download_count,
-	          created_at, expires_at, deleted_at
+	          created_at, expires_at, deleted_at, password_hash
 	`
 	row := db.QueryRowContext(ctx, query, token)
 	return scanFileRecord(row)
@@ -241,7 +255,7 @@ func (db *DB) GetExpiredFiles(ctx context.Context, limit int) ([]*FileRecord, er
 	query := `
 	SELECT id, original_name, extension, size_bytes, mime_type, sha256_hash,
 	       storage_path, delete_token, uploader_ip, is_burn_on_read, download_count,
-	       created_at, expires_at, deleted_at
+	       created_at, expires_at, deleted_at, password_hash
 	FROM files
 	WHERE expires_at <= CURRENT_TIMESTAMP
 	   OR (deleted_at IS NOT NULL AND storage_path != '')
@@ -255,33 +269,9 @@ func (db *DB) GetExpiredFiles(ctx context.Context, limit int) ([]*FileRecord, er
 
 	var records []*FileRecord
 	for rows.Next() {
-		f := &FileRecord{}
-		var deletedAt sql.NullTime
-		var createdAt, expiresAt time.Time
-
-		err := rows.Scan(
-			&f.ID,
-			&f.OriginalName,
-			&f.Extension,
-			&f.SizeBytes,
-			&f.MimeType,
-			&f.SHA256Hash,
-			&f.StoragePath,
-			&f.DeleteToken,
-			&f.UploaderIP,
-			&f.IsBurnOnRead,
-			&f.DownloadCount,
-			&createdAt,
-			&expiresAt,
-			&deletedAt,
-		)
+		f, err := scanFileRecord(rows)
 		if err != nil {
 			return nil, err
-		}
-		f.CreatedAt = createdAt
-		f.ExpiresAt = expiresAt
-		if deletedAt.Valid {
-			f.DeletedAt = &deletedAt.Time
 		}
 		records = append(records, f)
 	}
@@ -367,6 +357,7 @@ func scanFileRecord(s scannable) (*FileRecord, error) {
 		&createdAt,
 		&expiresAt,
 		&deletedAt,
+		&f.PasswordHash,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -1,5 +1,5 @@
 import { isImage } from "@/components/file-icon"
-import { upload, type Uploaded } from "@/lib/api"
+import { upload, type UploadOpts, type Uploaded } from "@/lib/api"
 import { newFiles } from "@/lib/files"
 import { SpeedMeter } from "@/lib/format"
 import { addHistory } from "@/lib/history"
@@ -28,8 +28,8 @@ type UploadState = {
   remove: (id: string) => void
   clear: () => void
   /** Upload every queued or failed item, one at a time. */
-  uploadAll: (expiry: string, token: string) => Promise<void>
-  retry: (id: string, expiry: string, token: string) => Promise<void>
+  uploadAll: (opts: UploadOpts) => Promise<void>
+  retry: (id: string, opts: UploadOpts) => Promise<void>
 }
 
 const aborts = new Map<string, () => void>()
@@ -44,12 +44,12 @@ export const useUpload = create<UploadState>()((set, get) => {
     if (item.preview) URL.revokeObjectURL(item.preview)
   }
 
-  async function uploadOne(id: string, expiry: string, token: string) {
+  async function uploadOne(id: string, opts: UploadOpts) {
     const item = get().items.find((i) => i.id === id)
     if (!item) return
     patch(id, { status: "uploading", loaded: 0, speed: 0, error: undefined })
     const meter = new SpeedMeter()
-    const { promise, abort } = upload(item.file, expiry, token, (loaded) =>
+    const { promise, abort } = upload(item.file, opts, (loaded) =>
       patch(id, { loaded, speed: meter.sample(loaded) }),
     )
     aborts.set(id, abort)
@@ -115,12 +115,11 @@ export const useUpload = create<UploadState>()((set, get) => {
       set({ items: [] })
     },
 
-    async uploadAll(expiry, token) {
+    async uploadAll(opts) {
       for (const { id } of get().items) {
         // re-read: the user may have removed it (or retried it) while an earlier file uploaded
         const cur = get().items.find((i) => i.id === id)
-        if (cur && (cur.status === "queued" || cur.status === "error"))
-          await uploadOne(id, expiry, token)
+        if (cur && (cur.status === "queued" || cur.status === "error")) await uploadOne(id, opts)
       }
     },
 

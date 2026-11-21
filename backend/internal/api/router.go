@@ -135,7 +135,9 @@ func NewRouter(rc *RouterConfig) http.Handler {
 
 	// 7. File Serving (Public)
 	r.Get("/f/{file}", serveHandler.HandleServe)
+	r.Post("/f/{file}", serveHandler.HandleServe) // password-protected files are unlocked by a form POST
 	r.Get("/api/files/{id}", serveHandler.HandleMeta)
+	r.Post("/api/files/{id}/verify", serveHandler.HandleVerify)
 
 	// 8. Early File Deletion
 	r.Delete("/api/files/{id}", deleteHandler.HandleAPIDelete)
@@ -152,6 +154,7 @@ func NewRouter(rc *RouterConfig) http.Handler {
 			"version":             rc.Config.Version,
 			"max_file_size_mb":    rc.Config.MaxFileSizeMB,
 			"max_file_size_human": util.FormatBytes(rc.Config.MaxFileSizeBytes()),
+			"max_expiry_seconds":  int64(rc.Config.MaxExpiryDuration().Seconds()), // 0 = unlimited
 			"max_files":           rc.Config.MaxFiles,
 			"allowed_expiries":    rc.Config.AllowedExpiries,
 			"default_expiry":      rc.Config.DefaultExpiry,
@@ -187,7 +190,7 @@ func NewRouter(rc *RouterConfig) http.Handler {
 		fileServer := http.FileServer(http.FS(rc.StaticFS))
 		r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 			path := strings.TrimPrefix(r.URL.Path, "/")
-			if path == "" {
+			if path == "" || path == "about" {
 				if !serveIndex(w, rc.StaticFS, http.StatusOK) {
 					http.Error(w, "frontend not built", http.StatusNotFound)
 				}

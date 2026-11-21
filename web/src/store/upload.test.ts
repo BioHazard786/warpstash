@@ -21,7 +21,7 @@ const f = (name: string) => new File(["x"], name, { lastModified: 1 })
 it("does not upload files removed while the batch is running", async () => {
   const s = useUpload.getState()
   s.add([f("a.txt"), f("b.txt"), f("c.txt")], limits)
-  const run = s.uploadAll("24h", "")
+  const run = s.uploadAll({ expiry: "24h", token: "", password: "" })
   s.clear() // "Remove all" while a.txt is in flight
   await run
   expect(sent).toEqual(["a.txt"])

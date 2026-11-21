@@ -1,8 +1,11 @@
 /** Server limits from GET /api/info; read at runtime so the UI always matches the server's config. */
 export type Info = {
+  version: string
   max_file_size_mb: number
   max_file_size_human: string
   max_files: number
+  /** Longest custom expiry the server accepts, in seconds; 0 means no cap. */
+  max_expiry_seconds: number
   allowed_expiries: string[]
   default_expiry: string
   auth_required: boolean
@@ -17,10 +20,33 @@ export type Uploaded = {
   created_at: string
   expires_at: string
   is_burn_on_read: boolean
+  password_protected: boolean
 }
 
 /** Public details of a file, from GET /api/files/{id}. Reading them never burns the file. */
-export type FileMeta = { id: string; name: string; size: number; burn: boolean; expires_at: string }
+export type FileMeta = {
+  id: string
+  burn: boolean
+  password: boolean
+  expires_at: string
+  /** Withheld while the file is password protected: they come back from verifyPassword. */
+  name?: string
+  size?: number
+}
+
+/** Check a password without downloading (or burning) anything; returns the file's name and size. */
+export async function verifyPassword(
+  file: string,
+  password: string,
+): Promise<{ name: string; size: number }> {
+  const res = await fetch(`/api/files/${encodeURIComponent(file)}/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ password }),
+  })
+  if (!res.ok) throw new Error(await errorText(res))
+  return res.json()
+}
 
 /** The file's details, or the HTTP status when it's gone (410) or unknown (404). */
 export async function fetchMeta(file: string): Promise<FileMeta | number> {
@@ -48,11 +74,12 @@ async function errorText(res: Response): Promise<string> {
   }
 }
 
+export type UploadOpts = { expiry: string; token: string; password: string }
+
 /** POST one file. XHR rather than fetch because fetch has no upload progress. */
 export function upload(
   file: File,
-  expiry: string,
-  token: string,
+  { expiry, token, password }: UploadOpts,
   onProgress: (loaded: number) => void,
 ): { promise: Promise<Uploaded>; abort: () => void } {
   const xhr = new XMLHttpRequest()
@@ -78,6 +105,7 @@ export function upload(
   })
   const form = new FormData()
   form.append("time", expiry) // fields before the file: the server reads the multipart stream in order
+  if (password) form.append("password", password)
   form.append("file", file)
   xhr.open("POST", "/api/upload")
   xhr.setRequestHeader("Accept", "application/json")

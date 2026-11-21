@@ -42,6 +42,7 @@ describe("format", () => {
 it("describes time left until expiry", () => {
   const now = Date.parse("2026-01-01T00:00:00Z")
   expect(expiresIn("2026-01-01T03:05:00Z", now)).toBe("3h 5m left")
+  expect(expiresIn("2026-01-08T04:00:00Z", now)).toBe("7d 4h left")
   expect(expiresIn("2025-12-31T23:00:00Z", now)).toBe("expired")
   expect(expiresIn("", now)).toBe("")
 })

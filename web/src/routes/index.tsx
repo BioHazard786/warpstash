@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fetchInfo } from "@/lib/api"
+import { expiryError, formatDuration } from "@/lib/expiry"
 import { useUpload } from "@/store/upload"
-import { IconCloudUpload, IconFlame } from "@tabler/icons-react"
+import { IconCloudUpload, IconFlame, IconLock } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
@@ -19,12 +20,12 @@ const TOKEN_KEY = "warpstash_token"
 
 const cli = (o: string) => ({
   curl: {
-    cmd: `curl -F file=@document.pdf ${o}/api/upload`,
-    hint: "Returns a direct link. Add -F time=1h or -F burn=true to control expiry.",
+    cmd: `curl -F file=@document.pdf ${o}/`,
+    hint: "Returns a direct link. Add -F time=5d (or 90m, 2w), -F burn=true or -F password=… to control it.",
   },
   wget: {
-    cmd: `wget --post-file=document.pdf --header='X-Filename: document.pdf' ${o}/api/upload -qO -`,
-    hint: "Uploads the raw file body. Add --header='X-Expiry: 1h' to control expiry.",
+    cmd: `wget --post-file=document.pdf --header='X-Filename: document.pdf' ${o}/ -qO -`,
+    hint: "Uploads the raw file body. Add --header='X-Expiry: 5d' or --header='X-Password: …' to control it.",
   },
 })
 
@@ -32,9 +33,14 @@ function UploadPage() {
   const info = Route.useLoaderData()
   const { items, add, remove, clear, uploadAll, retry } = useUpload()
   const expiries = info.allowed_expiries
-  const [expiry, setExpiry] = useState(
-    expiries.includes(info.default_expiry) ? info.default_expiry : (expiries[0] ?? ""),
+  const [preset, setPreset] = useState(
+    expiries.includes(info.default_expiry) ? info.default_expiry : (expiries[0] ?? "custom"),
   )
+  const [customExpiry, setCustomExpiry] = useState("")
+  const [password, setPassword] = useState("")
+  const isCustom = preset === "custom"
+  const expiry = isCustom ? customExpiry.trim() : preset
+  const expiryErr = isCustom ? expiryError(customExpiry, info.max_expiry_seconds) : ""
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? "")
 
   const maxFiles = info.max_files || Infinity
@@ -85,8 +91,8 @@ function UploadPage() {
             variant="outline"
             size="sm"
             spacing={0}
-            value={[expiry]}
-            onValueChange={(v) => v[0] && setExpiry(v[0])}
+            value={[preset]}
+            onValueChange={(v) => v[0] && setPreset(v[0])}
             aria-label="Expiry"
           >
             {expiries.map((e) =>
@@ -105,6 +111,9 @@ function UploadPage() {
                 </ToggleGroupItem>
               ),
             )}
+            <ToggleGroupItem value="custom" className="font-mono text-xs">
+              Custom
+            </ToggleGroupItem>
           </ToggleGroup>
         }
       >
@@ -116,6 +125,40 @@ function UploadPage() {
             "or paste",
           ]}
         />
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {isCustom && (
+            <div className="flex flex-1 flex-col gap-1">
+              <Input
+                autoFocus
+                placeholder="Expires after… e.g. 90m, 5d, 2w"
+                aria-label="Custom expiry"
+                aria-invalid={customExpiry !== "" && !!expiryErr}
+                value={customExpiry}
+                onChange={(e) => setCustomExpiry(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {(customExpiry && expiryErr) ||
+                  (info.max_expiry_seconds
+                    ? `Minutes, hours, days or weeks, up to ${formatDuration(info.max_expiry_seconds)}.`
+                    : "Minutes, hours, days or weeks.")}
+              </p>
+            </div>
+          )}
+          <div className="relative flex-1">
+            <IconLock className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+            <Input
+              type="password"
+              className="pl-8"
+              placeholder="Password (optional)"
+              aria-label="Download password"
+              autoComplete="new-password"
+              maxLength={72}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
 
         {info.auth_required && (
           <Input
@@ -135,7 +178,7 @@ function UploadPage() {
             <UploadList
               items={items}
               onRemove={remove}
-              onRetry={(id) => void retry(id, expiry, token)}
+              onRetry={(id) => void retry(id, { expiry, token, password })}
             />
             <div className="flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" onClick={clear}>
@@ -144,8 +187,8 @@ function UploadPage() {
               {!allDone && (
                 <Button
                   size="sm"
-                  disabled={busy || pending === 0}
-                  onClick={() => void uploadAll(expiry, token)}
+                  disabled={busy || pending === 0 || !!expiryErr}
+                  onClick={() => void uploadAll({ expiry, token, password })}
                 >
                   <IconCloudUpload data-icon="inline-start" />
                   {busy ? "Uploading…" : pending > 1 ? `Upload ${pending} files` : "Upload"}

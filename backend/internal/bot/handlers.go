@@ -58,11 +58,13 @@ func (b *BotService) handleStart(ctx *ext.Context, update *ext.Update) error {
 	welcomeText := fmt.Sprintf(
 		"👋 <b>Welcome to Warpstash Bot!</b>\n\n"+
 			"Send or forward any file (documents, videos, audio, images up to <b>%d MB</b>) to stash it directly on the server.\n\n"+
-			"⏱ <b>Available Retentions:</b> <code>%s</code>\n"+
+			"⏱ <b>Retention buttons:</b> <code>%s</code>\n"+
+			"✏️ <b>Any other lifetime:</b> add a caption like <code>3d</code>, <code>90m</code> or <code>2w</code> (%s) when you send the file, and it is stashed straight away.\n"+
 			"🔥 <b>Burn Option:</b> Auto-deletes immediately after the first download.\n\n"+
 			"🔗 <b>Base URL:</b> <code>%s</code>",
 		b.cfg.MaxFileSizeMB,
 		strings.Join(b.cfg.AllowedExpiries, ", "),
+		b.maxExpiryNote(),
 		b.cfg.BaseURL,
 	)
 
@@ -157,11 +159,26 @@ func (b *BotService) handleMedia(ctx *ext.Context, update *ext.Update) error {
 		CreatedAt: time.Now(),
 	})
 
+	// A caption that is itself an expiry ("3d", "90m", "burn") skips the buttons.
+	if choice, ok := b.captionExpiry(msg.Text); ok {
+		b.pending.Delete(key)
+		status, err := ctx.Reply(update, replyHTML(fmt.Sprintf(
+			"⏳ <b>Stashing <code>%s</code>...</b>\n\n<i>Downloading via MTProto directly to server storage...</i>", htmlEscape(filename),
+		)), nil)
+		if err != nil {
+			return err
+		}
+		b.stashAsync(ctx, chatID, status.ID, choice, &PendingUpload{
+			Media: msg.Media, Filename: filename, Size: fileSize, MimeType: mimeType, UserID: user.ID, InputPeer: inputPeer,
+		})
+		return nil
+	}
+
 	// Render prompt with inline buttons
 	prompt := fmt.Sprintf(
 		"📁 <b>File:</b> <code>%s</code>\n"+
 			"📦 <b>Size:</b> <code>%s</code>\n\n"+
-			"⏱ <i>Select expiration retention period:</i>",
+			"⏱ <i>Select a retention period, or resend with a caption like</i> <code>3d</code>",
 		htmlEscape(filename),
 		humanize.Bytes(uint64(fileSize)),
 	)
@@ -237,7 +254,13 @@ func (b *BotService) handleCallback(ctx *ext.Context, update *ext.Update) error 
 		nil,
 	)
 
-	// Execute download and persistence in a background goroutine so dispatcher is never blocked
+	b.stashAsync(ctx, chatID, cbq.MsgID, expiryChoice, pending)
+
+	return nil
+}
+
+// stashAsync downloads and persists the file in a background goroutine so the dispatcher is never blocked.
+func (b *BotService) stashAsync(ctx *ext.Context, chatID int64, statusMsgID int, expiryChoice string, pending *PendingUpload) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -245,17 +268,36 @@ func (b *BotService) handleCallback(ctx *ext.Context, update *ext.Update) error 
 					"panic", r,
 					"stack", string(debug.Stack()),
 				)
-				_ = b.editOrSendMessage(ctx, pending.InputPeer, cbq.MsgID,
+				_ = b.editOrSendMessage(ctx, pending.InputPeer, statusMsgID,
 					"❌ <b>Internal Error</b>: An error occurred while processing the file.",
 					nil,
 				)
 			}
 		}()
 
-		b.processAndStash(ctx, chatID, cbq.MsgID, expiryChoice, pending)
+		b.processAndStash(ctx, chatID, statusMsgID, expiryChoice, pending)
 	}()
+}
 
-	return nil
+// captionExpiry returns a media caption as an expiry choice when it is one ("3d", "90m", "burn");
+// ordinary captions ("holiday photos") are ignored.
+func (b *BotService) captionExpiry(caption string) (string, bool) {
+	c := strings.TrimSpace(caption)
+	if c == "" {
+		return "", false
+	}
+	if _, _, err := b.cfg.ParseExpiry(c); err != nil {
+		return "", false
+	}
+	return c, true
+}
+
+// maxExpiryNote words the lifetime cap for users.
+func (b *BotService) maxExpiryNote() string {
+	if b.cfg.MaxExpiryDuration() == 0 {
+		return "no upper limit"
+	}
+	return "up to " + b.cfg.MaxExpiry
 }
 
 // handleDeleteCallback processes inline deletion requests ("del:<fileID>").

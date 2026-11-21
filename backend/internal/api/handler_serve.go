@@ -74,6 +74,12 @@ func (h *ServeHandler) HandleServe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Password-protected files only open for a POST form field or an X-Password header.
+	if file.PasswordHash != "" && !h.unlocked(w, r, file) {
+		h.denyLocked(w, r)
+		return
+	}
+
 	// Handle Burn-After-Reading files
 	if file.IsBurnOnRead {
 		h.handleBurnServe(w, r, file)
@@ -104,13 +110,79 @@ func (h *ServeHandler) HandleMeta(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	meta := map[string]any{
 		"id":         file.ID,
-		"name":       file.OriginalName,
-		"size":       file.SizeBytes,
 		"burn":       file.IsBurnOnRead,
+		"password":   file.PasswordHash != "",
 		"expires_at": file.ExpiresAt,
-	})
+	}
+	// A locked file's name and size are as private as its content: they come back from HandleVerify instead.
+	if file.PasswordHash == "" {
+		meta["name"] = file.OriginalName
+		meta["size"] = file.SizeBytes
+	}
+	_ = json.NewEncoder(w).Encode(meta)
+}
+
+// HandleVerify serves POST /api/files/{id}/verify: checks a password without claiming the file, so the
+// SPA can reject a wrong one before submitting the real (possibly burning) download.
+// shortcut: no per-file attempt limit beyond the per-IP rate limiter, upgrade if guessing becomes a concern.
+func (h *ServeHandler) HandleVerify(w http.ResponseWriter, r *http.Request) {
+	param := chi.URLParam(r, "id")
+	id := strings.TrimSuffix(param, filepath.Ext(param))
+	file, err := h.db.GetFile(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		status := http.StatusNotFound
+		if burned, _ := h.db.IsBurnedFile(r.Context(), id); burned {
+			status = http.StatusGone
+		}
+		serveErrorPage(w, r, nil, status)
+		return
+	}
+	if err != nil {
+		serveErrorPage(w, r, nil, http.StatusInternalServerError)
+		return
+	}
+
+	var body struct {
+		Password string `json:"password"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body)
+	if file.PasswordHash != "" && !checkPassword(file.PasswordHash, body.Password) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Wrong password"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{"name": file.OriginalName, "size": file.SizeBytes})
+}
+
+// unlocked reports whether the request carries the file's password: an X-Password header, or a POSTed form field.
+func (h *ServeHandler) unlocked(w http.ResponseWriter, r *http.Request, file *database.FileRecord) bool {
+	pw := r.Header.Get("X-Password")
+	if pw == "" && r.Method == http.MethodPost {
+		r.Body = http.MaxBytesReader(w, r.Body, 4096)
+		pw = r.PostFormValue("password")
+	}
+	return pw != "" && checkPassword(file.PasswordHash, pw)
+}
+
+// denyLocked answers a request that didn't unlock a protected file: browsers (and link-preview bots) get the
+// SPA, which asks for the password; everything else gets a 401. Nothing about the file leaves the server.
+func (h *ServeHandler) denyLocked(w http.ResponseWriter, r *http.Request) {
+	tried := r.Method == http.MethodPost || r.Header.Get("X-Password") != ""
+	if !tried && !isCLICaller(r) && serveIndex(w, h.staticFS, http.StatusOK) {
+		return
+	}
+	msg := "password required: send it in an X-Password header"
+	if tried {
+		msg = "wrong password"
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = fmt.Fprintf(w, "401 Unauthorized: %s\n", msg)
 }
 
 // handleBurnServe manages the bot-shield interstitial and atomic single-use streaming.
@@ -193,7 +265,7 @@ func (h *ServeHandler) handleStandardServe(w http.ResponseWriter, r *http.Reques
 	}
 	defer rc.Close()
 
-	isInline := r.URL.Query().Get("inline") == "1" || r.URL.Query().Get("view") == "1"
+	isInline := (r.URL.Query().Get("inline") == "1" || r.URL.Query().Get("view") == "1") && file.PasswordHash == ""
 
 	// Security and Cache headers
 	w.Header().Set("Content-Type", file.MimeType)

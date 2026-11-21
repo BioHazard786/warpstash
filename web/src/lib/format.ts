@@ -50,5 +50,7 @@ export class SpeedMeter {
 export function expiresIn(iso: string, now = Date.now()): string {
   const s = (Date.parse(iso) - now) / 1000
   if (Number.isNaN(s)) return ""
-  return s > 0 ? `${formatETA(s)} left` : "expired"
+  if (s <= 0) return "expired"
+  if (s >= 86400) return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h left`
+  return `${formatETA(s)} left`
 }

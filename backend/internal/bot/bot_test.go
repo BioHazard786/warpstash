@@ -209,3 +209,20 @@ func TestFormatSuccessMessage(t *testing.T) {
 	})
 }
 
+func TestCaptionExpiry(t *testing.T) {
+	svc := &BotService{cfg: &config.Config{DefaultExpiry: "24h", MaxExpiry: "30d"}}
+	for _, ok := range []string{"3d", " 90m ", "2W", "burn"} {
+		if got, matched := svc.captionExpiry(ok); !matched || got != strings.TrimSpace(ok) {
+			t.Errorf("captionExpiry(%q) = %q, %v; want a match", ok, got, matched)
+		}
+	}
+	// ordinary captions, out-of-range and bare numbers fall through to the buttons
+	for _, no := range []string{"", "holiday photos", "99d", "30s", "5"} {
+		if _, matched := svc.captionExpiry(no); matched {
+			t.Errorf("captionExpiry(%q) should not match", no)
+		}
+	}
+	if got := svc.maxExpiryNote(); got != "up to 30d" {
+		t.Errorf("maxExpiryNote = %q", got)
+	}
+}

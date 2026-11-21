@@ -32,6 +32,7 @@ type UploadResponse struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 	IsBurnOnRead bool      `json:"is_burn_on_read"`
 	TimeToLive   string    `json:"time_to_live"`
+	Protected    bool      `json:"password_protected"`
 }
 
 // UploadHandler handles multipart and raw binary file uploads.
@@ -109,6 +110,7 @@ func (h *UploadHandler) handleMultipartUpload(w http.ResponseWriter, r *http.Req
 		filename  string
 		expiryStr string
 		burnStr   string
+		password  string
 		fileFound bool
 	)
 
@@ -141,6 +143,8 @@ func (h *UploadHandler) handleMultipartUpload(w http.ResponseWriter, r *http.Req
 			expiryStr = val
 		case "burn":
 			burnStr = val
+		case "password":
+			password = string(buf[:n]) // untrimmed: spaces are part of a password
 		}
 		_ = part.Close()
 	}
@@ -172,7 +176,11 @@ func (h *UploadHandler) handleMultipartUpload(w http.ResponseWriter, r *http.Req
 		burnStr = r.URL.Query().Get("burn")
 	}
 
-	h.processFileStream(w, r, filePart, filename, expiryStr, burnStr, mr)
+	if password == "" {
+		password = r.Header.Get("X-Password")
+	}
+
+	h.processFileStream(w, r, filePart, filename, expiryStr, burnStr, password, mr)
 }
 
 // handleRawStreamUpload handles stdin piping (e.g., curl -T - or curl --data-binary).
@@ -198,11 +206,11 @@ func (h *UploadHandler) handleRawStreamUpload(w http.ResponseWriter, r *http.Req
 		burnStr = r.URL.Query().Get("burn")
 	}
 
-	h.processFileStream(w, r, r.Body, filename, expiryStr, burnStr, nil)
+	h.processFileStream(w, r, r.Body, filename, expiryStr, burnStr, r.Header.Get("X-Password"), nil)
 }
 
 // processFileStream streams content directly to storage, updates DB, and responds.
-func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request, reader io.Reader, filename, expiryStr, burnStr string, mr *multipart.Reader) {
+func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request, reader io.Reader, filename, expiryStr, burnStr, password string, mr *multipart.Reader) {
 	ctx := r.Context()
 
 	// Clean and sanitize filename
@@ -271,6 +279,10 @@ func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request
 				if burnStr == "" {
 					burnStr = val
 				}
+			case "password":
+				if password == "" {
+					password = string(buf[:n])
+				}
 			}
 			_ = part.Close()
 		}
@@ -285,6 +297,20 @@ func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request
 	}
 	if strings.EqualFold(burnStr, "true") || strings.EqualFold(burnStr, "1") {
 		isBurn = true
+	}
+
+	passwordHash := ""
+	if password != "" {
+		if len(password) > maxPasswordLen {
+			_ = h.storage.Delete(storagePath)
+			h.respondError(w, r, http.StatusBadRequest, fmt.Sprintf("password must be at most %d bytes", maxPasswordLen))
+			return
+		}
+		if passwordHash, err = hashPassword(password); err != nil {
+			_ = h.storage.Delete(storagePath)
+			h.respondError(w, r, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
 	}
 
 	// Generate 32-byte crypto deletion token
@@ -311,6 +337,7 @@ func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request
 		IsBurnOnRead: isBurn,
 		CreatedAt:    now,
 		ExpiresAt:    expiresAt,
+		PasswordHash: passwordHash,
 	}
 
 	if err := h.db.InsertFile(ctx, record); err != nil {
@@ -358,6 +385,7 @@ func (h *UploadHandler) processFileStream(w http.ResponseWriter, r *http.Request
 		ExpiresAt:    expiresAt,
 		IsBurnOnRead: isBurn,
 		TimeToLive:   ttlString,
+		Protected:    passwordHash != "",
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

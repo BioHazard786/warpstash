@@ -10,6 +10,7 @@ func TestParseExpiry(t *testing.T) {
 	cfg := &Config{
 		DefaultExpiry:   "24h",
 		AllowedExpiries: []string{"1h", "12h", "24h", "72h", "burn"},
+		MaxExpiry:       "30d",
 	}
 
 	tests := []struct {
@@ -24,8 +25,17 @@ func TestParseExpiry(t *testing.T) {
 		{"72h", 72 * time.Hour, false, false},
 		{"burn", 72 * time.Hour, true, false},
 		{"1x", 72 * time.Hour, true, false},
-		{"", 24 * time.Hour, false, false}, // fallback to default
-		{"999h", 0, false, true},           // not in allowed list
+		{"", 24 * time.Hour, false, false},      // fallback to default
+		{"90m", 90 * time.Minute, false, false}, // custom values beyond the presets
+		{"7d", 7 * 24 * time.Hour, false, false},
+		{"2w", 14 * 24 * time.Hour, false, false},
+		{"1d12h", 36 * time.Hour, false, false},
+		{"30d", 30 * 24 * time.Hour, false, false},
+		{"31d", 0, false, true}, // over MaxExpiry
+		{"30s", 0, false, true}, // under a minute
+		{"0h", 0, false, true},
+		{"-5h", 0, false, true},
+		{"999999999w", 0, false, true}, // overflow guard
 		{"invalid", 0, false, true},
 	}
 
@@ -105,4 +115,19 @@ WARPSTASH_ALLOWED_EXPIRIES="1h,24h"
 	}
 }
 
-
+func TestMaxExpiry(t *testing.T) {
+	unlimited := &Config{MaxExpiry: "0", DefaultExpiry: "24h"}
+	if d, _, err := unlimited.ParseExpiry("52w"); err != nil || d != 52*7*24*time.Hour {
+		t.Errorf("MaxExpiry=0 should not cap: %v %v", d, err)
+	}
+	// a typo must not lift the cap
+	typo := &Config{MaxExpiry: "thirty", DefaultExpiry: "24h"}
+	if _, _, err := typo.ParseExpiry("90d"); err == nil {
+		t.Error("an unparseable MaxExpiry should fall back to 30d, not unlimited")
+	}
+	// burn files never outlive the cap
+	short := &Config{MaxExpiry: "24h", DefaultExpiry: "1h"}
+	if d, burn, _ := short.ParseExpiry("burn"); !burn || d != 24*time.Hour {
+		t.Errorf("burn lifetime = %v, want capped to 24h", d)
+	}
+}

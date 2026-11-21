@@ -42,9 +42,9 @@ function describe(it: Item, tile: boolean): string {
       return `Failed · ${it.error ?? "try again"}`
     case "done": {
       const r = it.result
-      const left = r?.is_burn_on_read
-        ? "Burn on read"
-        : expiresIn(r?.expires_at ?? "") || "Uploaded"
+      const left =
+        (r?.password_protected ? "Locked · " : "") +
+        (r?.is_burn_on_read ? "Burn on read" : expiresIn(r?.expires_at ?? "") || "Uploaded")
       return tile ? left : `${left} · ${size}`
     }
   }
