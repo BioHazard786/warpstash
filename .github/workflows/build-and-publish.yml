@@ -10,7 +10,11 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   build-and-push:
+    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,9 +23,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
-      - name: Set up QEMU (multi-arch)
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -33,10 +34,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
-        id: vars
-        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-
       - name: Compute image name
         id: imagename
         shell: bash
@@ -44,34 +41,42 @@ jobs:
           owner_lc="${GITHUB_REPOSITORY_OWNER,,}"
           echo "name=ghcr.io/${owner_lc}/warpstash" >> "$GITHUB_OUTPUT"
 
+      # `latest` only moves for stable tags: not for pre-releases (v1.2.0-rc1) or manual branch runs.
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.imagename.outputs.name }}
+          tags: |
+            type=ref,event=tag
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=Warpstash
+            org.opencontainers.image.description=Ephemeral file storage service
+
       - name: Build and push Warpstash image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            WARPSTASH_VERSION=${{ steps.vars.outputs.VERSION }}
-          tags: |
-            ${{ steps.imagename.outputs.name }}:${{ steps.vars.outputs.VERSION }}
-            ${{ steps.imagename.outputs.name }}:latest
-          labels: |
-            org.opencontainers.image.title=Warpstash
-            org.opencontainers.image.description=Ephemeral file storage service
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.vars.outputs.VERSION }}
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            WARPSTASH_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Publish summary
         run: |
-          echo "Published: ${{ steps.imagename.outputs.name }}:${{ steps.vars.outputs.VERSION }}"
-          echo "Also tagged: ${{ steps.imagename.outputs.name }}:latest"
-          echo "Pull with: docker pull ${{ steps.imagename.outputs.name }}:${{ steps.vars.outputs.VERSION }}"
+          echo "Published tags:"
+          echo "${{ steps.meta.outputs.tags }}"
 
   release-binaries:
+    needs: ci
+    # a manual run from a branch must not create a GitHub release named after the branch
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,7 +115,7 @@ jobs:
             output_dir="dist/${target_os}_${target_arch}"
             mkdir -p "$output_dir"
             echo "Building for ${target_os}/${target_arch}..."
-            (cd backend && CGO_ENABLED=0 GOOS=$target_os GOARCH=$target_arch go build \
+            (cd backend && CGO_ENABLED=0 GOOS=$target_os GOARCH=$target_arch go build -trimpath \
               -ldflags="-s -w -X warpstash/internal/config.Version=${VERSION}" \
               -o "../${output_dir}/${target_bin}" \
               ./cmd/warpstash)

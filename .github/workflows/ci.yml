@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call: # the release workflow runs this first
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "backend/go.mod"
+
+      # The frontend is built first because the Go binary embeds it.
+      - name: Frontend (lint, test, typecheck + build)
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun run lint
+          bun run test
+          bun run build
+
+      - name: Backend (vet + test)
+        working-directory: backend
+        run: |
+          go vet ./...
+          go test ./...

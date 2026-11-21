@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS = -s -w -X warpstash/internal/config.Version=$(VERSION)
 
-.PHONY: all build-frontend build-backend build test run dev-web clean docker-build docker-up
+.PHONY: all build-frontend build-backend build test run dev-web clean
 
 all: build
 
@@ -24,12 +24,6 @@ run: build
 # Vite dev server on :5173, proxying /api, /f/ and /upload to a backend on :8080.
 dev-web:
 	cd web && bun run dev
-
-docker-build:
-	docker compose build
-
-docker-up:
-	docker compose up -d
 
 clean:
 	rm -rf warpstash data/

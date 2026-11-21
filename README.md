@@ -10,7 +10,7 @@ Warpstash is a dead-simple, self-hosted file dropper. You upload a file, get a l
 
 Want to kick the tires without setting anything up? Check out the live instance:
 
-👉 **Web:** [https://warpstash.biohazard.qzz.io/](https://warpstash.biohazard.qzz.io/)  
+👉 **Web:** [https://stash.warplabs.info/](https://stash.warplabs.info/)  
 👉 **Telegram Bot:** [@warpstash_bot](https://t.me/warpstash_bot)
 
 > Hosted on an Oracle Cloud Free Tier VPS with a measly **50MB file limit** (shared across both web and Telegram bot) and **5GB disk space** lmao. Please don't try to stash your 4K bluray rips or the server will cry.
@@ -19,7 +19,8 @@ Want to kick the tires without setting anything up? Check out the live instance:
 
 ## 🎯 Why You'll Love It
 
-- ⏳ **Self-Destructing Files**: Pick an expiration time (`1h`, `12h`, `24h`, `72h`). Once time is up, the file is deleted forever. Your disk space stays clean, your past stays buried.
+- ⏳ **Self-Destructing Files**: Pick a preset or type any lifetime (`90m`, `5d`, `2w`, up to the server's cap, 30 days by default). Once time is up, the file is deleted forever. Your disk space stays clean, your past stays buried.
+- 🔒 **Optional Passwords**: Lock a file behind a password. The name and size stay hidden until it's unlocked, and wrong guesses never burn a burn-after-reading file.
 - 💥 **Burn After Reading**: Mission Impossible style. The second someone downloads it, it vanishes from the face of the earth. Great for configs, secrets, or embarrassing receipts.
 - 🤖 **Discord & Slack Bot Shield**: You know how preview bots from Discord or Slack preview your link and accidentally trigger "burn on read"? We slap their hands away. Only actual humans downloading the file can detonate it.
 - 💻 **Terminal Native (`curl` friendly)**: Don't want to leave your terminal? Pipe a command or `curl` a file straight to Warpstash and get a raw, clickable link back.
@@ -35,25 +36,31 @@ Because opening a web browser is sometimes 3 clicks too many.
 ### With `curl`
 ```bash
 # Upload a file (default: 24h expiration, returns raw URL)
-curl -F "file=@screenshot.png" https://warpstash.biohazard.qzz.io/
+curl -F "file=@screenshot.png" https://stash.warplabs.info/
 
 # Burn after reading (self-destructs after 1 download)
-curl -F "file=@secrets.env" -F "burn=true" https://warpstash.biohazard.qzz.io/
+curl -F "file=@secrets.env" -F "burn=true" https://stash.warplabs.info/
 
-# Custom expiration (1h, 12h, 24h, 72h)
-curl -F "file=@large_dump.sql" -F "time=1h" https://warpstash.biohazard.qzz.io/
+# Custom expiration: any mix of m, h, d, w (90m, 5d, 2w, 1d12h)
+curl -F "file=@large_dump.sql" -F "time=1h" https://stash.warplabs.info/
+
+# Password-protect a file (recipients get a password page in the browser)
+curl -F "file=@payroll.xlsx" -F "password=correct-horse" https://stash.warplabs.info/
+
+# Download a protected file from the terminal
+curl -OJ -H "X-Password: correct-horse" https://stash.warplabs.info/f/a8X2mP9z.xlsx
 
 # Pipe terminal output straight to a link
-dmesg | curl -T - "https://warpstash.biohazard.qzz.io/upload?filename=dmesg.log&time=12h"
+dmesg | curl -T - "https://stash.warplabs.info/upload?filename=dmesg.log&time=12h"
 
 # Download a file (saves using server's original filename)
-curl -OJ https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+curl -OJ https://stash.warplabs.info/f/a8X2mP9z.png
 
 # Download with a custom local filename
-curl -o downloaded_file.png https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+curl -o downloaded_file.png https://stash.warplabs.info/f/a8X2mP9z.png
 
 # Delete early: ask for JSON to get the delete_url, then DELETE it
-curl -H "Accept: application/json" -F "file=@notes.txt" https://warpstash.biohazard.qzz.io/
+curl -H "Accept: application/json" -F "file=@notes.txt" https://stash.warplabs.info/
 curl -X DELETE "<delete_url from the JSON>"
 ```
 
@@ -63,14 +70,14 @@ curl -X DELETE "<delete_url from the JSON>"
 wget --post-file=report.pdf \
      --header="X-Filename: report.pdf" \
      --header="X-Expiry: 24h" \
-     https://warpstash.biohazard.qzz.io/upload -qO -
+     https://stash.warplabs.info/ -qO -
 
 # Burn after reading (self-destructs after 1 download)
 wget --post-file=secrets.env \
-     "https://warpstash.biohazard.qzz.io/upload?filename=secrets.env&burn=true" -qO -
+     "https://stash.warplabs.info/upload?filename=secrets.env&burn=true" -qO -
 
 # Download a file
-wget --content-disposition https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+wget --content-disposition https://stash.warplabs.info/f/a8X2mP9z.png
 ```
 
 ### 💡 Shell Helpers (`~/.bashrc` or `~/.zshrc`)
@@ -78,18 +85,20 @@ wget --content-disposition https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 Typing `curl -F "file=@..."` every time you want to send a file is tedious. Drop these quick helpers into your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-# Send a file (usage: warp <file> [1h|12h|24h|72h])
+# Send a file (usage: warp <file> [time] [password], time like 90m, 12h, 5d, 2w)
 warp() {
-    curl -F "file=@$1" ${2:+-F "time=$2"} https://warpstash.biohazard.qzz.io/
+    curl -F "file=@$1" ${2:+--form-string "time=$2"} ${3:+--form-string "password=$3"} https://stash.warplabs.info/
 }
 
-# Burn after reading (usage: warp-burn <file>)
+# Burn after reading (usage: warp-burn <file> [password])
 warp-burn() {
-    curl -F "file=@$1" -F "burn=true" https://warpstash.biohazard.qzz.io/
+    curl -F "file=@$1" -F "burn=true" ${2:+--form-string "password=$2"} https://stash.warplabs.info/
 }
 
-# Download a file (saves with original remote filename)
-alias warp-get='curl -OJ'
+# Download a file, saved with its original name (usage: warp-get <url> [password])
+warp-get() {
+    curl -OJ ${2:+-H "X-Password: $2"} "$1"
+}
 ```
 
 Reload your shell (`source ~/.bashrc` or `source ~/.zshrc`), and you can send & receive files in one word:
@@ -98,15 +107,21 @@ Reload your shell (`source ~/.bashrc` or `source ~/.zshrc`), and you can send & 
 # Send a file (default 24h, prints the link instantly)
 warp screenshot.png
 
-# Send with custom expiry
-warp dump.sql 1h
+# Send with custom expiry (any of 90m, 12h, 5d, 2w...)
+warp dump.sql 5d
+
+# Lock it behind a password (time first, then the password)
+warp payroll.xlsx 24h correct-horse
 
 # Send secrets that self-destruct after 1 download
 warp-burn secrets.env
 
-# Download a file
-warp-get https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
+# Download a file, or a password-protected one
+warp-get https://stash.warplabs.info/f/a8X2mP9z.png
+warp-get https://stash.warplabs.info/f/k3Zp9QmW1x.xlsx correct-horse
 ```
+
+> Passwords typed on the command line end up in your shell history. Prefix the command with a space (bash/zsh with `HISTCONTROL=ignorespace`) to keep it out.
 
 ---
 
@@ -114,26 +129,20 @@ warp-get https://warpstash.biohazard.qzz.io/f/a8X2mP9z.png
 
 ### The Easy Way (Docker Compose)
 
-Using the included [docker-compose.yml](docker-compose.yml):
-
-#### Option 1: Quick Start (Official Pre-Built Image)
-Runs the official hosted image. Limits come from `.env` at runtime (the web UI reads them from `/api/info`), so the pre-built image works with any limits:
+Runs the official pre-built image from GHCR. Limits come from `.env` at runtime (the web UI reads them from `/api/info`), so the same image works with any limits and no rebuild:
 
 ```bash
-# 1. Grab docker-compose.prod.yml and start
-curl -fSL https://raw.githubusercontent.com/BioHazard786/warpstash/main/docker-compose.prod.yml -o docker-compose.yml
-# Optional: set WARPSTASH_MAX_FILE_SIZE_MB, WARPSTASH_MAX_FILES, ... in .env next to it
+curl -fSL https://raw.githubusercontent.com/BioHazard786/warpstash/main/docker-compose.yml -o docker-compose.yml
+curl -fSL https://raw.githubusercontent.com/BioHazard786/warpstash/main/.env.example -o .env
+# Edit .env: WARPSTASH_MAX_FILE_SIZE_MB, WARPSTASH_MAX_FILES, WARPSTASH_MAX_TOTAL_STORAGE_GB, ...
 docker compose up -d
 ```
 
-#### Option 2: Build from Source
+Port 8080 taken (say, by another app)? Set `WARPSTASH_PORT=8081` in `.env`: Compose publishes that host port and the container keeps listening on 8080 internally. Point your reverse proxy at the host port.
 
-```bash
-git clone https://github.com/BioHazard786/warpstash.git
-cd warpstash
-cp .env.example .env   # adjust as you like
-docker compose up -d --build
-```
+Changed `.env` later? Run `docker compose up -d` again to apply it. To pin a release, change the image tag in `docker-compose.yml` (e.g. `:v1.1.0` instead of `:latest`); upgrade with `docker compose pull && docker compose up -d`.
+
+To build the image yourself: `docker build -t warpstash --build-arg WARPSTASH_VERSION=$(git describe --tags --always) .`
 
 ### The Bare-Metal Way (Single Binary)
 
@@ -144,7 +153,7 @@ If you prefer running binaries directly like an old-school sysadmin:
 make build
 
 # 2. Fire it up
-./warpstash --port 8080 --base-url https://warpstash.biohazard.qzz.io
+./warpstash --port 8080 --base-url https://stash.warplabs.info
 ```
 
 ---
@@ -158,7 +167,7 @@ Put Warpstash behind your favorite web server for automatic HTTPS and domain rou
 Three lines of config, automatic SSL certificates, and you can go back to eating lunch:
 
 ```caddy
-warpstash.biohazard.qzz.io {
+stash.warplabs.info {
     # Don't cut off big uploads!
     request_body {
         max_size 1GB
@@ -173,17 +182,17 @@ warpstash.biohazard.qzz.io {
 ```nginx
 server {
     listen 80;
-    server_name warpstash.biohazard.qzz.io;
+    server_name stash.warplabs.info;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name warpstash.biohazard.qzz.io;
+    server_name stash.warplabs.info;
 
     # Your SSL certificate paths
-    ssl_certificate /etc/letsencrypt/live/warpstash.biohazard.qzz.io/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/warpstash.biohazard.qzz.io/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/stash.warplabs.info/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/stash.warplabs.info/privkey.pem;
 
     # Allow large uploads so Nginx doesn't throw a 413 fit
     client_max_body_size 1024M;
@@ -202,7 +211,7 @@ server {
 }
 ```
 
-> **Pro-Tip**: When hosting behind Caddy or Nginx, remember to set `WARPSTASH_TRUST_PROXY=true` and `WARPSTASH_BASE_URL=https://warpstash.biohazard.qzz.io` so Warpstash generates proper public HTTPS links!
+> **Pro-Tip**: When hosting behind Caddy or Nginx, remember to set `WARPSTASH_TRUST_PROXY=true` and `WARPSTASH_BASE_URL=https://stash.warplabs.info` so Warpstash generates proper public HTTPS links!
 
 ---
 
@@ -215,7 +224,9 @@ You don't need a PhD in devops. Here are the only knobs you really care about:
 | `WARPSTASH_BASE_URL` | `http://localhost:8080` | Your public domain (used to generate the share links) |
 | `WARPSTASH_PORT` | `8080` | Port the internal server listens on |
 | `WARPSTASH_MAX_FILE_SIZE_MB` | `1024` (1GB) | Max upload limit per file |
-| `WARPSTASH_DEFAULT_EXPIRY` | `24h` | Expiration time if the user doesn't pick one (`1h`, `12h`, `24h`, `72h`) |
+| `WARPSTASH_DEFAULT_EXPIRY` | `24h` | Expiration time if the user doesn't pick one |
+| `WARPSTASH_ALLOWED_EXPIRIES` | `1h,24h,7d,30d,burn` | Preset buttons in the web UI and Telegram bot. Any other duration is accepted too, up to the max below |
+| `WARPSTASH_MAX_EXPIRY` | `30d` | Longest lifetime a file can be given (`90m`, `7d`, `2w`...). `0` means unlimited |
 | `WARPSTASH_AUTH_TOKEN` | *(none)* | Set a password if you want this to be your private secret clubhouse |
 | `WARPSTASH_TRUST_PROXY` | `false` | Flip to `true` if you're using Caddy, Nginx, or Cloudflare |
 | `WARPSTASH_TELEGRAM_BOT_TOKEN` | *(none)* | Telegram bot token from @BotFather (enables embedded MTProto bot) |
