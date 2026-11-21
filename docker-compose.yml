@@ -1,10 +1,18 @@
 services:
   warpstash:
-    image: ghcr.io/biohazard786/warpstash:latest
+    # WARPSTASH_VERSION picks the image tag (default latest), e.g. WARPSTASH_VERSION=v2.0.0
+    image: ghcr.io/biohazard786/warpstash:${WARPSTASH_VERSION:-latest}
+    # `docker compose up -d --build` builds from source instead of pulling; the version shown in the app is then "dev"
+    # unless WARPSTASH_VERSION is set.
+    build:
+      context: .
+      args:
+        WARPSTASH_VERSION: ${WARPSTASH_VERSION:-dev}
     container_name: warpstash
     restart: unless-stopped
     ports:
-      - "${WARPSTASH_PORT:-8080}:8080"
+      # localhost only: put Caddy/Nginx in front. Use "${WARPSTASH_PORT:-8080}:8080" to publish on all interfaces.
+      - "127.0.0.1:${WARPSTASH_PORT:-8080}:8080"
     env_file:
       - path: .env
         required: false
@@ -15,6 +23,12 @@ services:
       - WARPSTASH_DB_PATH=/data/warpstash.db
     volumes:
       - warpstash_data:/data
+    # Everything the app writes lives in /data, so the rest of the filesystem can be read-only.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
 volumes:
   warpstash_data:

@@ -59,7 +59,7 @@ func isFrontendAsset(path string) bool {
 	if strings.HasPrefix(path, "/assets/") {
 		return true
 	}
-	if path == "/favicon.ico" || path == "/favicon.svg" {
+	if path == "/favicon.ico" || path == "/favicon.svg" || path == "/healthz" {
 		return true
 	}
 	// Omit common frontend static assets when NOT under /f/ (user storage) or /api/

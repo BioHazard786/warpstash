@@ -138,11 +138,13 @@ curl -fSL https://raw.githubusercontent.com/BioHazard786/warpstash/main/.env.exa
 docker compose up -d
 ```
 
+The container binds to `127.0.0.1` only, so put Caddy or Nginx in front of it. To publish on all interfaces instead, drop the `127.0.0.1:` prefix in the compose file. It runs with a read-only filesystem and no extra privileges (everything is written to the `/data` volume), and has a healthcheck, so `docker ps` shows `healthy`.
+
 Port 8080 taken (say, by another app)? Set `WARPSTASH_PORT=8081` in `.env`: Compose publishes that host port and the container keeps listening on 8080 internally. Point your reverse proxy at the host port.
 
-Changed `.env` later? Run `docker compose up -d` again to apply it. To pin a release, change the image tag in `docker-compose.yml` (e.g. `:v1.1.0` instead of `:latest`); upgrade with `docker compose pull && docker compose up -d`.
+Changed `.env` later? Run `docker compose up -d` again to apply it. To pin a release, set `WARPSTASH_VERSION=v2.0.0` in `.env` (the image tag, `latest` by default); upgrade with `docker compose pull && docker compose up -d`.
 
-To build the image yourself: `docker build -t warpstash --build-arg WARPSTASH_VERSION=$(git describe --tags --always) .`
+To build from source instead of pulling: `WARPSTASH_VERSION=v2.0.0-custom docker compose up -d --build`. The same value is the version shown in the app (`dev` if unset).
 
 ### The Bare-Metal Way (Single Binary)
 

@@ -142,6 +142,15 @@ func NewRouter(rc *RouterConfig) http.Handler {
 	// 8. Early File Deletion
 	r.Delete("/api/files/{id}", deleteHandler.HandleAPIDelete)
 
+	// Liveness + database check for container healthchecks (`warpstash -healthcheck` calls it).
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if err := rc.DB.PingContext(r.Context()); err != nil {
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte("ok\n"))
+	})
+
 	// 9. Server Telemetry & Health Info
 	r.Get("/api/info", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

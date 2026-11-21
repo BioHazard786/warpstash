@@ -22,6 +22,9 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
+	if cfg.HealthCheck {
+		os.Exit(healthcheck(cfg.Port))
+	}
 	logFormat := os.Getenv("WARPSTASH_LOG_FORMAT")
 	if logFormat == "" {
 		logFormat = "text"
@@ -108,4 +111,21 @@ func main() {
 	}
 
 	l.Info("server shutdown complete")
+}
+
+// healthcheck asks the server on this host for /healthz. The runtime image has no curl or shell,
+// so Docker's HEALTHCHECK runs the binary itself. Returns the process exit code.
+func healthcheck(port string) int {
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + port + "/healthz")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "unhealthy:", err)
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintln(os.Stderr, "unhealthy: HTTP", resp.StatusCode)
+		return 1
+	}
+	return 0
 }

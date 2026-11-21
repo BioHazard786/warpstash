@@ -15,13 +15,9 @@ RUN bun x vite build --outDir /out --emptyOutDir
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
 WORKDIR /src/backend
 
-# Install CA certificates and timezone database
-RUN apk --no-cache add ca-certificates tzdata
-
-# Create unprivileged non-root user (UID 10001) and storage directory
-RUN adduser -D -u 10001 -g "" -s /sbin/nologin warpstash && \
-    mkdir -p /data/storage && \
-    chown -R 10001:10001 /data
+# Storage directory, owned by the runtime user (UID 10001, kept from earlier images so existing
+# volumes stay writable). A new named volume inherits this ownership from the image.
+RUN mkdir -p /data/storage && chown -R 10001:10001 /data
 
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
@@ -32,28 +28,20 @@ COPY --from=frontend-builder /out ./web/dist
 # Build fully static binary (zero CGO) with embedded version and native cross-compilation
 ARG TARGETOS
 ARG TARGETARCH
-ARG WARPSTASH_VERSION=v1.0.0
+ARG WARPSTASH_VERSION=dev
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w -X warpstash/internal/config.Version=${WARPSTASH_VERSION}" -o /app/warpstash ./cmd/warpstash
 
 # ==========================================
-# Stage 3: Ultra-Minimal Production Runner
+# Stage 3: Minimal Production Runner (distroless: CA certs, tzdata, no shell)
 # ==========================================
-FROM scratch AS runner
+FROM gcr.io/distroless/static:nonroot AS runner
 
 WORKDIR /app
 
-# System certificates and timezone data
-COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=backend-builder /usr/share/zoneinfo /usr/share/zoneinfo
-
-# Non-root user and pre-configured data directory
-COPY --from=backend-builder /etc/passwd /etc/passwd
 COPY --from=backend-builder --chown=10001:10001 /data /data
-
-# Binary
 COPY --from=backend-builder /app/warpstash /app/warpstash
 
-# Run as non-root user
+# Numeric user: no passwd entry needed. Not distroless' default 65532, so existing volumes keep working.
 USER 10001:10001
 
 # Default Environment Variables
@@ -73,5 +61,8 @@ ENV WARPSTASH_PORT=8080 \
 
 VOLUME ["/data"]
 EXPOSE 8080
+
+# No curl in the image; the binary probes its own /healthz.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 CMD ["/app/warpstash", "-healthcheck"]
 
 ENTRYPOINT ["/app/warpstash"]

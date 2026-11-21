@@ -16,22 +16,22 @@ import (
 
 // Version is the build-time application version injected via -ldflags.
 // Example: -ldflags "-X warpstash/internal/config.Version=v1.0.0"
-// Defaults to "1.0.0" or reads Go module build info.
-var Version = "v1.0.0"
+// "dev" for local builds, or the Go module version when installed with `go install`.
+var Version = "dev"
 
 func init() {
-	if Version == "" {
+	if Version == "" || Version == "dev" {
 		if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
 			Version = bi.Main.Version
 		} else {
-			Version = "v1.0.0"
+			Version = "dev"
 		}
 	}
 }
 
 // Config represents all application configuration parameters.
 type Config struct {
-	Version                string        `env:"WARPSTASH_VERSION" json:"version"`
+	Version                string        `json:"version"`
 	Port                   string        `env:"WARPSTASH_PORT" envDefault:"8080"`
 	BaseURL                string        `env:"WARPSTASH_BASE_URL" envDefault:"http://localhost:8080"`
 	StoragePath            string        `env:"WARPSTASH_STORAGE_PATH" envDefault:"./data/storage"`
@@ -55,6 +55,7 @@ type Config struct {
 	TelegramRateLimitBurst int           `env:"WARPSTASH_TELEGRAM_RATE_LIMIT_BURST" envDefault:"5"`
 
 	LoadedEnvFile string `json:"-"`
+	HealthCheck   bool   `json:"-"` // -healthcheck: probe /healthz on this port and exit
 }
 
 // LoadConfig parses flags and environment variables with sensible defaults.
@@ -90,6 +91,7 @@ func LoadConfig() *Config {
 	var envFileFlag string
 	var showVersion bool
 	if !flag.Parsed() && flag.CommandLine.Lookup("port") == nil {
+		flag.BoolVar(&cfg.HealthCheck, "healthcheck", false, "Check that a running server answers /healthz, then exit 0 or 1")
 		flag.BoolVar(&showVersion, "v", false, "Print Warpstash version and exit")
 		flag.BoolVar(&showVersion, "version", false, "Print Warpstash version and exit")
 		flag.StringVar(&envFileFlag, "env-file", cfg.LoadedEnvFile, "Path to .env configuration file")

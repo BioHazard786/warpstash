@@ -206,3 +206,10 @@ func TestCustomExpiryAndAboutRoute(t *testing.T) {
 		t.Errorf("info should expose the cap: %s", rec.Body.String())
 	}
 }
+
+func TestHealthz(t *testing.T) {
+	h := spaRouter(t)
+	if rec := do(h, http.MethodGet, "/healthz", "", nil); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "ok" {
+		t.Errorf("/healthz: %d %q", rec.Code, rec.Body.String())
+	}
+}
